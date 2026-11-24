@@ -1,0 +1,637 @@
+{
+  "project_id": "demo-48",
+  "version": 4,
+  "parent_version": 3,
+  "stage": "layout",
+  "created_at": "2026-11-24T13:17:02.268530Z",
+  "note": "Правка cm3: шкаф к окну, перезапуск только спальни",
+  "plan": {
+    "units": "mm",
+    "walls": [
+      {
+        "id": "w1",
+        "a": [
+          -150.0,
+          0.0
+        ],
+        "b": [
+          8150.0,
+          0.0
+        ],
+        "thickness": 300.0,
+        "position": "exterior",
+        "structural": "unknown",
+        "confidence": 1.0
+      },
+      {
+        "id": "w2",
+        "a": [
+          -150.0,
+          6000.0
+        ],
+        "b": [
+          8150.0,
+          6000.0
+        ],
+        "thickness": 300.0,
+        "position": "exterior",
+        "structural": "unknown",
+        "confidence": 1.0
+      },
+      {
+        "id": "w3",
+        "a": [
+          0.0,
+          -150.0
+        ],
+        "b": [
+          0.0,
+          6150.0
+        ],
+        "thickness": 300.0,
+        "position": "exterior",
+        "structural": "unknown",
+        "confidence": 1.0
+      },
+      {
+        "id": "w4",
+        "a": [
+          8000.0,
+          -150.0
+        ],
+        "b": [
+          8000.0,
+          6150.0
+        ],
+        "thickness": 300.0,
+        "position": "exterior",
+        "structural": "unknown",
+        "confidence": 1.0
+      },
+      {
+        "id": "w5",
+        "a": [
+          4400.0,
+          0.0
+        ],
+        "b": [
+          4400.0,
+          3650.0
+        ],
+        "thickness": 200.0,
+        "position": "interior",
+        "structural": "unknown",
+        "confidence": 0.78
+      },
+      {
+        "id": "w6",
+        "a": [
+          4350.0,
+          3600.0
+        ],
+        "b": [
+          8000.0,
+          3600.0
+        ],
+        "thickness": 100.0,
+        "position": "interior",
+        "structural": "partition",
+        "confidence": 0.95
+      },
+      {
+        "id": "w7",
+        "a": [
+          5600.0,
+          3600.0
+        ],
+        "b": [
+          5600.0,
+          6000.0
+        ],
+        "thickness": 100.0,
+        "position": "interior",
+        "structural": "partition",
+        "confidence": 0.95
+      },
+      {
+        "id": "w8",
+        "a": [
+          4400.0,
+          3600.0
+        ],
+        "b": [
+          4400.0,
+          6000.0
+        ],
+        "thickness": 100.0,
+        "position": "interior",
+        "structural": "partition",
+        "confidence": 0.95
+      }
+    ],
+    "openings": [
+      {
+        "id": "win1",
+        "kind": "window",
+        "a": [
+          800.0,
+          0.0
+        ],
+        "b": [
+          2400.0,
+          0.0
+        ],
+        "wall": "w1",
+        "swing": null,
+        "confidence": 1.0
+      },
+      {
+        "id": "win2",
+        "kind": "window",
+        "a": [
+          2700.0,
+          0.0
+        ],
+        "b": [
+          3900.0,
+          0.0
+        ],
+        "wall": "w1",
+        "swing": null,
+        "confidence": 1.0
+      },
+      {
+        "id": "win3",
+        "kind": "window",
+        "a": [
+          5600.0,
+          0.0
+        ],
+        "b": [
+          7200.0,
+          0.0
+        ],
+        "wall": "w1",
+        "swing": null,
+        "confidence": 1.0
+      },
+      {
+        "id": "e1",
+        "kind": "entrance",
+        "a": [
+          4600.0,
+          6000.0
+        ],
+        "b": [
+          5500.0,
+          6000.0
+        ],
+        "wall": "w2",
+        "swing": {
+          "hinge": "b",
+          "side": "left"
+        },
+        "confidence": 1.0
+      },
+      {
+        "id": "d1",
+        "kind": "door",
+        "a": [
+          4600.0,
+          3600.0
+        ],
+        "b": [
+          5400.0,
+          3600.0
+        ],
+        "wall": "w6",
+        "swing": {
+          "hinge": "a",
+          "side": "left"
+        },
+        "confidence": 1.0
+      },
+      {
+        "id": "d2",
+        "kind": "door",
+        "a": [
+          5600.0,
+          4000.0
+        ],
+        "b": [
+          5600.0,
+          4700.0
+        ],
+        "wall": "w7",
+        "swing": {
+          "hinge": "a",
+          "side": "left"
+        },
+        "confidence": 1.0
+      },
+      {
+        "id": "p1",
+        "kind": "passage",
+        "a": [
+          4400.0,
+          4200.0
+        ],
+        "b": [
+          4400.0,
+          5100.0
+        ],
+        "wall": "w8",
+        "swing": null,
+        "confidence": 1.0
+      }
+    ],
+    "rooms": [
+      {
+        "id": "r1",
+        "type": "kitchen_living",
+        "polygon": [
+          [
+            150.0,
+            150.0
+          ],
+          [
+            4300.0,
+            150.0
+          ],
+          [
+            4300.0,
+            3650.0
+          ],
+          [
+            4350.0,
+            3650.0
+          ],
+          [
+            4350.0,
+            5850.0
+          ],
+          [
+            150.0,
+            5850.0
+          ]
+        ],
+        "name": null,
+        "label_area_m2": null,
+        "confidence": 1.0
+      },
+      {
+        "id": "r2",
+        "type": "bedroom",
+        "polygon": [
+          [
+            4500.0,
+            150.0
+          ],
+          [
+            7850.0,
+            150.0
+          ],
+          [
+            7850.0,
+            3550.0
+          ],
+          [
+            4500.0,
+            3550.0
+          ]
+        ],
+        "name": null,
+        "label_area_m2": null,
+        "confidence": 1.0
+      },
+      {
+        "id": "r3",
+        "type": "bathroom",
+        "polygon": [
+          [
+            5650.0,
+            3650.0
+          ],
+          [
+            7850.0,
+            3650.0
+          ],
+          [
+            7850.0,
+            5850.0
+          ],
+          [
+            5650.0,
+            5850.0
+          ]
+        ],
+        "name": null,
+        "label_area_m2": null,
+        "confidence": 1.0
+      },
+      {
+        "id": "r4",
+        "type": "hall",
+        "polygon": [
+          [
+            4450.0,
+            3650.0
+          ],
+          [
+            5550.0,
+            3650.0
+          ],
+          [
+            5550.0,
+            5850.0
+          ],
+          [
+            4450.0,
+            5850.0
+          ]
+        ],
+        "name": null,
+        "label_area_m2": null,
+        "confidence": 1.0
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "riser1",
+        "kind": "water_riser",
+        "at": [
+          6300.0,
+          4700.0
+        ],
+        "inferred": false
+      },
+      {
+        "id": "vent1",
+        "kind": "vent",
+        "at": [
+          300.0,
+          5700.0
+        ],
+        "inferred": false
+      }
+    ],
+    "source": {
+      "kind": "manual",
+      "ref": "демо-квартира из презентации курсового",
+      "mm_per_px": null
+    }
+  },
+  "brief": {
+    "raw_text": "Двушка для пары без детей, оба работают из дома. Скандинавский стиль, светлые тона, много света. Два рабочих места, открытая кухня с барной стойкой.",
+    "occupants": {
+      "adults": 2,
+      "children": 0,
+      "remote_work": true,
+      "pets": false
+    },
+    "style": [
+      "скандинавский"
+    ],
+    "palette": [],
+    "must_have": [
+      "2 рабочих места",
+      "барная стойка",
+      "открытая кухня"
+    ],
+    "nice_to_have": [],
+    "avoid": [],
+    "budget_rub": null,
+    "notes": null
+  },
+  "constraints": [
+    {
+      "id": "c1",
+      "kind": "hard",
+      "rule": "within_riser_radius",
+      "subject": "bathtub",
+      "target": "riser1",
+      "room": null,
+      "params": {
+        "mm": 1500
+      },
+      "weight": null,
+      "source": "norm",
+      "comment_id": null
+    },
+    {
+      "id": "c7",
+      "kind": "hard",
+      "rule": "not_in_swing",
+      "subject": "wardrobe",
+      "target": "d1",
+      "room": "r2",
+      "params": {},
+      "weight": null,
+      "source": "user",
+      "comment_id": "cm3"
+    },
+    {
+      "id": "c8",
+      "kind": "hard",
+      "rule": "near",
+      "subject": "desk",
+      "target": "window",
+      "room": "r2",
+      "params": {},
+      "weight": null,
+      "source": "user",
+      "comment_id": "cm3"
+    },
+    {
+      "id": "c9",
+      "kind": "soft",
+      "rule": "against_wall",
+      "subject": "wardrobe",
+      "target": null,
+      "room": "r2",
+      "params": {},
+      "weight": 0.6,
+      "source": "user",
+      "comment_id": "cm3"
+    }
+  ],
+  "layout": {
+    "variant": "B",
+    "items": [
+      {
+        "id": "i1",
+        "type": "wardrobe",
+        "room": "r2",
+        "x": 4800.0,
+        "y": 1075.0,
+        "w": 1850.0,
+        "d": 600.0,
+        "rotation": 90
+      },
+      {
+        "id": "i2",
+        "type": "desk",
+        "room": "r2",
+        "x": 6400.0,
+        "y": 500.0,
+        "w": 1400.0,
+        "d": 700.0,
+        "rotation": 0
+      },
+      {
+        "id": "i3",
+        "type": "bed_double",
+        "room": "r2",
+        "x": 6700.0,
+        "y": 2550.0,
+        "w": 1600.0,
+        "d": 2000.0,
+        "rotation": 0
+      },
+      {
+        "id": "i4",
+        "type": "nightstand",
+        "room": "r2",
+        "x": 7675.0,
+        "y": 3350.0,
+        "w": 350.0,
+        "d": 400.0,
+        "rotation": 0
+      },
+      {
+        "id": "i5",
+        "type": "sofa",
+        "room": "r1",
+        "x": 3850.0,
+        "y": 1900.0,
+        "w": 2200.0,
+        "d": 900.0,
+        "rotation": 90
+      },
+      {
+        "id": "i6",
+        "type": "armchair",
+        "room": "r1",
+        "x": 2750.0,
+        "y": 1900.0,
+        "w": 700.0,
+        "d": 800.0,
+        "rotation": 0
+      },
+      {
+        "id": "i7",
+        "type": "tv_stand",
+        "room": "r1",
+        "x": 350.0,
+        "y": 2000.0,
+        "w": 1400.0,
+        "d": 400.0,
+        "rotation": 90
+      },
+      {
+        "id": "i8",
+        "type": "desk",
+        "room": "r1",
+        "x": 1500.0,
+        "y": 500.0,
+        "w": 1400.0,
+        "d": 700.0,
+        "rotation": 0
+      },
+      {
+        "id": "i9",
+        "type": "fridge",
+        "room": "r1",
+        "x": 450.0,
+        "y": 3850.0,
+        "w": 700.0,
+        "d": 600.0,
+        "rotation": 90
+      },
+      {
+        "id": "i10",
+        "type": "kitchen_run",
+        "room": "r1",
+        "x": 450.0,
+        "y": 5025.0,
+        "w": 1650.0,
+        "d": 600.0,
+        "rotation": 90
+      },
+      {
+        "id": "i11",
+        "type": "kitchen_run",
+        "room": "r1",
+        "x": 1500.0,
+        "y": 5550.0,
+        "w": 1500.0,
+        "d": 600.0,
+        "rotation": 0
+      },
+      {
+        "id": "i12",
+        "type": "bar_counter",
+        "room": "r1",
+        "x": 2550.0,
+        "y": 4200.0,
+        "w": 1700.0,
+        "d": 600.0,
+        "rotation": 0
+      },
+      {
+        "id": "i13",
+        "type": "bathtub",
+        "room": "r3",
+        "x": 7050.0,
+        "y": 5475.0,
+        "w": 1600.0,
+        "d": 750.0,
+        "rotation": 0
+      },
+      {
+        "id": "i14",
+        "type": "toilet",
+        "room": "r3",
+        "x": 7625.0,
+        "y": 3975.0,
+        "w": 450.0,
+        "d": 650.0,
+        "rotation": 0
+      },
+      {
+        "id": "i15",
+        "type": "sink",
+        "room": "r3",
+        "x": 6900.0,
+        "y": 3875.0,
+        "w": 600.0,
+        "d": 450.0,
+        "rotation": 0
+      },
+      {
+        "id": "i16",
+        "type": "washer",
+        "room": "r3",
+        "x": 5950.0,
+        "y": 5550.0,
+        "w": 600.0,
+        "d": 600.0,
+        "rotation": 0
+      }
+    ],
+    "score": null
+  },
+  "comments": [
+    {
+      "id": "cm3",
+      "stage": "layout",
+      "text": "Шкаф мешает открыть дверь в спальню. Перенеси его, стол оставь у окна.",
+      "target": "i1",
+      "parsed_to": [
+        "c7",
+        "c8",
+        "c9"
+      ]
+    }
+  ]
+}

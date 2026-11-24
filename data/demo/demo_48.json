@@ -1,0 +1,376 @@
+{
+  "units": "mm",
+  "walls": [
+    {
+      "id": "w1",
+      "a": [
+        -150.0,
+        0.0
+      ],
+      "b": [
+        8150.0,
+        0.0
+      ],
+      "thickness": 300.0,
+      "position": "exterior",
+      "structural": "unknown",
+      "confidence": 1.0
+    },
+    {
+      "id": "w2",
+      "a": [
+        -150.0,
+        6000.0
+      ],
+      "b": [
+        8150.0,
+        6000.0
+      ],
+      "thickness": 300.0,
+      "position": "exterior",
+      "structural": "unknown",
+      "confidence": 1.0
+    },
+    {
+      "id": "w3",
+      "a": [
+        0.0,
+        -150.0
+      ],
+      "b": [
+        0.0,
+        6150.0
+      ],
+      "thickness": 300.0,
+      "position": "exterior",
+      "structural": "unknown",
+      "confidence": 1.0
+    },
+    {
+      "id": "w4",
+      "a": [
+        8000.0,
+        -150.0
+      ],
+      "b": [
+        8000.0,
+        6150.0
+      ],
+      "thickness": 300.0,
+      "position": "exterior",
+      "structural": "unknown",
+      "confidence": 1.0
+    },
+    {
+      "id": "w5",
+      "a": [
+        4400.0,
+        0.0
+      ],
+      "b": [
+        4400.0,
+        3650.0
+      ],
+      "thickness": 200.0,
+      "position": "interior",
+      "structural": "unknown",
+      "confidence": 0.78
+    },
+    {
+      "id": "w6",
+      "a": [
+        4350.0,
+        3600.0
+      ],
+      "b": [
+        8000.0,
+        3600.0
+      ],
+      "thickness": 100.0,
+      "position": "interior",
+      "structural": "partition",
+      "confidence": 0.95
+    },
+    {
+      "id": "w7",
+      "a": [
+        5600.0,
+        3600.0
+      ],
+      "b": [
+        5600.0,
+        6000.0
+      ],
+      "thickness": 100.0,
+      "position": "interior",
+      "structural": "partition",
+      "confidence": 0.95
+    },
+    {
+      "id": "w8",
+      "a": [
+        4400.0,
+        3600.0
+      ],
+      "b": [
+        4400.0,
+        6000.0
+      ],
+      "thickness": 100.0,
+      "position": "interior",
+      "structural": "partition",
+      "confidence": 0.95
+    }
+  ],
+  "openings": [
+    {
+      "id": "win1",
+      "kind": "window",
+      "a": [
+        800.0,
+        0.0
+      ],
+      "b": [
+        2400.0,
+        0.0
+      ],
+      "wall": "w1",
+      "swing": null,
+      "confidence": 1.0
+    },
+    {
+      "id": "win2",
+      "kind": "window",
+      "a": [
+        2700.0,
+        0.0
+      ],
+      "b": [
+        3900.0,
+        0.0
+      ],
+      "wall": "w1",
+      "swing": null,
+      "confidence": 1.0
+    },
+    {
+      "id": "win3",
+      "kind": "window",
+      "a": [
+        5600.0,
+        0.0
+      ],
+      "b": [
+        7200.0,
+        0.0
+      ],
+      "wall": "w1",
+      "swing": null,
+      "confidence": 1.0
+    },
+    {
+      "id": "e1",
+      "kind": "entrance",
+      "a": [
+        4600.0,
+        6000.0
+      ],
+      "b": [
+        5500.0,
+        6000.0
+      ],
+      "wall": "w2",
+      "swing": {
+        "hinge": "b",
+        "side": "left"
+      },
+      "confidence": 1.0
+    },
+    {
+      "id": "d1",
+      "kind": "door",
+      "a": [
+        4600.0,
+        3600.0
+      ],
+      "b": [
+        5400.0,
+        3600.0
+      ],
+      "wall": "w6",
+      "swing": {
+        "hinge": "a",
+        "side": "left"
+      },
+      "confidence": 1.0
+    },
+    {
+      "id": "d2",
+      "kind": "door",
+      "a": [
+        5600.0,
+        4000.0
+      ],
+      "b": [
+        5600.0,
+        4700.0
+      ],
+      "wall": "w7",
+      "swing": {
+        "hinge": "a",
+        "side": "left"
+      },
+      "confidence": 1.0
+    },
+    {
+      "id": "p1",
+      "kind": "passage",
+      "a": [
+        4400.0,
+        4200.0
+      ],
+      "b": [
+        4400.0,
+        5100.0
+      ],
+      "wall": "w8",
+      "swing": null,
+      "confidence": 1.0
+    }
+  ],
+  "rooms": [
+    {
+      "id": "r1",
+      "type": "kitchen_living",
+      "polygon": [
+        [
+          150.0,
+          150.0
+        ],
+        [
+          4300.0,
+          150.0
+        ],
+        [
+          4300.0,
+          3650.0
+        ],
+        [
+          4350.0,
+          3650.0
+        ],
+        [
+          4350.0,
+          5850.0
+        ],
+        [
+          150.0,
+          5850.0
+        ]
+      ],
+      "name": null,
+      "label_area_m2": null,
+      "confidence": 1.0
+    },
+    {
+      "id": "r2",
+      "type": "bedroom",
+      "polygon": [
+        [
+          4500.0,
+          150.0
+        ],
+        [
+          7850.0,
+          150.0
+        ],
+        [
+          7850.0,
+          3550.0
+        ],
+        [
+          4500.0,
+          3550.0
+        ]
+      ],
+      "name": null,
+      "label_area_m2": null,
+      "confidence": 1.0
+    },
+    {
+      "id": "r3",
+      "type": "bathroom",
+      "polygon": [
+        [
+          5650.0,
+          3650.0
+        ],
+        [
+          7850.0,
+          3650.0
+        ],
+        [
+          7850.0,
+          5850.0
+        ],
+        [
+          5650.0,
+          5850.0
+        ]
+      ],
+      "name": null,
+      "label_area_m2": null,
+      "confidence": 1.0
+    },
+    {
+      "id": "r4",
+      "type": "hall",
+      "polygon": [
+        [
+          4450.0,
+          3650.0
+        ],
+        [
+          5550.0,
+          3650.0
+        ],
+        [
+          5550.0,
+          5850.0
+        ],
+        [
+          4450.0,
+          5850.0
+        ]
+      ],
+      "name": null,
+      "label_area_m2": null,
+      "confidence": 1.0
+    }
+  ],
+  "fixtures": [
+    {
+      "id": "riser1",
+      "kind": "water_riser",
+      "at": [
+        6300.0,
+        4700.0
+      ],
+      "inferred": false
+    },
+    {
+      "id": "vent1",
+      "kind": "vent",
+      "at": [
+        300.0,
+        5700.0
+      ],
+      "inferred": false
+    }
+  ],
+  "source": {
+    "kind": "manual",
+    "ref": "демо-квартира из презентации курсового",
+    "mm_per_px": null
+  }
+}

@@ -221,3 +221,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# System files
+.DS_Store
+
+# Project data
+data/external/
+data/resplan/
+projects/
+out/
+*.pkl
