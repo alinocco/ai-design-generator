@@ -8,6 +8,7 @@
   aidesign eval-recognition data/raw_plans
   aidesign layout data/demo/demo_48.json -o out/demo_layout.json   (+ рядом .svg)
   aidesign layout out/demo_layout.json --rooms r2 --keep r2_bed      (перегенерировать спальню)
+  aidesign rooms data/raw_plans/IMG_1662.plan.json --set r3=storage    (поправить типы комнат)
   aidesign llm-check                                                  (проверить модель из .env)
   aidesign brief data/demo/demo_48.json "Живём вдвоём, работаю из дома" --project demo
   aidesign comment demo "Убери стол из спальни"
@@ -148,6 +149,42 @@ def cmd_eval_recognition(args) -> int:
     if total:
         print(f"\nИТОГО: планов {len(files)}, с ошибкой {failed}; помещений с подписью {total}; "
               f"площадь совпала ±5% — {tot5 / total:.0%}, ±10% — {tot10 / total:.0%}")
+    return 0
+
+
+def cmd_rooms(args) -> int:
+    """Показать комнаты плана и при необходимости поправить типы: r3=storage r5=bedroom."""
+    from .geometry.core import room_area_m2
+    from .schemas import RoomType
+
+    path = Path(args.path)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    plan = Plan.model_validate(data["plan"] if "plan" in data else data)
+    changes = {}
+    for item in args.set or []:
+        rid, _, rtype = item.partition("=")
+        if rid not in {r.id for r in plan.rooms}:
+            print(f"нет комнаты {rid}", file=sys.stderr)
+            return 1
+        try:
+            changes[rid] = RoomType(rtype)
+        except ValueError:
+            print(f"тип {rtype!r} неизвестен; возможные: {', '.join(t.value for t in RoomType)}",
+                  file=sys.stderr)
+            return 1
+    for r in plan.rooms:
+        if r.id in changes:
+            r.type, r.confidence = changes[r.id], 1.0
+        label = f", на плане {r.label_area_m2} м²" if r.label_area_m2 else ""
+        mark = "" if r.confidence >= 0.99 else f"  (угадано, уверенность {r.confidence:.1f})"
+        print(f"{r.id:>4}  {r.type.value:<15} {room_area_m2(r):6.1f} м²{label}{mark}")
+    if changes:
+        if "plan" in data:
+            data["plan"] = json.loads(plan.model_dump_json())
+        else:
+            data = json.loads(plan.model_dump_json())
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"сохранено: {path}")
     return 0
 
 
@@ -324,6 +361,11 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("eval-recognition", help="метрика распознавания по подписанным площадям")
     p.add_argument("folder")
     p.set_defaults(func=cmd_eval_recognition)
+
+    p = sub.add_parser("rooms", help="комнаты плана; --set r3=storage поправит тип")
+    p.add_argument("path", help="plan.json")
+    p.add_argument("--set", nargs="*", metavar="ID=TYPE")
+    p.set_defaults(func=cmd_rooms)
 
     p = sub.add_parser("layout", help="расставить мебель (каталог + солвер CP-SAT + Критик)")
     p.add_argument("path", help="plan.json или state.json")

@@ -64,6 +64,73 @@ uv run aidesign convert-resplan data/external/ResPlan.pkl -o data/resplan --limi
     --split train --split-file data/external/split.json
 ```
 
+## Полный пайплайн: от картинки плана до расстановки с правками
+
+### Подготовка (один раз)
+
+```bash
+uv sync --extra dev --extra recognition      # зависимости, включая OpenCV и OCR
+# Ollama: установить с ollama.com, затем скачать модель (~9 ГБ)
+ollama pull qwen2.5:14b-instruct
+cp .env.example .env                          # здесь выбирается модель: Ollama или API
+uv run aidesign llm-check                     # должно ответить {'ok': True, ...}
+```
+
+Положите картинку плана застройщика в `data/raw_plans/`. Эта папка в git не попадает.
+
+### Шаги
+
+```bash
+# 1. Распознать план → IMG_1662.plan.json и IMG_1662.plan.debug.png рядом с картинкой
+uv run aidesign recognize data/raw_plans/IMG_1662.PNG --debug
+
+# 2. Проверить план и типы комнат (типы угаданы правилами — сверьте с .debug.png)
+uv run aidesign validate data/raw_plans/IMG_1662.plan.json
+uv run aidesign rooms data/raw_plans/IMG_1662.plan.json
+uv run aidesign rooms data/raw_plans/IMG_1662.plan.json --set r3=storage   # если тип неверный
+
+# 3. Бриф → версия 1
+uv run aidesign brief data/raw_plans/IMG_1662.plan.json \
+    "Живём вдвоём, работаю из дома — стол у окна. Только душ." --project flat1662
+
+# 4. Правки → версии 2, 3, … (каждая правка — к последней версии)
+uv run aidesign comment flat1662 "Шкаф мешает открыть дверь, перенеси его"
+uv run aidesign comment flat1662 "Стиральную машину перенеси на кухню"
+uv run aidesign comment flat1662 "Какая площадь у спальни?"   # вопрос: новой версии не будет
+```
+
+Бриф можно взять из файла: `--file brief.txt` вместо текста в кавычках. Правку можно сделать
+к старой версии: `--version 1`.
+
+### Что получается
+
+| Где | Что |
+|---|---|
+| `data/raw_plans/*.plan.json` | распознанный план в нашей схеме |
+| `data/raw_plans/*.plan.debug.png` | распознанное поверх исходной картинки: стены, проёмы, площади «распознано / на плане» |
+| `projects/<проект>/vNNNN.json` | версия проекта: план, бриф, ограничения, правки, расстановка |
+| `projects/<проект>/vNNNN.svg` | картинка расстановки этой версии |
+| `projects/<проект>/llm_log.jsonl` | все вызовы модели: промпт, ответ, время, токены |
+
+В консоли после каждой команды печатаются:
+- ответ системы;
+- предупреждения, например «комната не найдена» или «не нашлось другого места»;
+- список ограничений с источником (`brief` или `user`);
+- расход модели.
+
+Распознанную квартиру можно не только обставлять агентами, но и расставить без LLM:
+`uv run aidesign layout data/raw_plans/IMG_1662.plan.json -o out/flat1662.json`.
+
+### Что учесть на распознанных планах
+
+- Стояков на маркетинговых планах нет, поэтому радиус сантехники не проверяется.
+- Открытая кухня-гостиная, разделённая пунктиром, распознаётся одной комнатой.
+- Мелкие помещения без окна (кладовки, коридоры) правила иногда принимают за санузлы. Их стоит
+  поправить через `rooms --set`, иначе туда попытается встать ванна. Возможные типы: `living`,
+  `kitchen`, `kitchen_living`, `bedroom`, `bathroom`, `toilet`, `hall`, `corridor`, `storage`,
+  `balcony`, `other`.
+- Лучше всего сейчас распознаётся `IMG_1662` — с неё удобно начинать демо.
+
 ## Структура
 
 ```
@@ -79,7 +146,8 @@ src/aidesign/
                 Оркестратор, оценка агентов
   store.py      версии ProjectState: каждая версия — неизменяемый JSON
   cli.py        команды aidesign validate | render | convert-labelme | convert-resplan |
-                recognize | eval-recognition | layout | llm-check | brief | comment | eval-agents
+                recognize | eval-recognition | rooms | layout | llm-check | brief | comment |
+                eval-agents
 data/demo/      демо-квартира: план и полное состояние с брифом, правкой и расстановкой
 data/agents_eval/  размеченные брифы и правки для оценки агентов
 docs/           правила разметки, заметки о распознавании и расстановке

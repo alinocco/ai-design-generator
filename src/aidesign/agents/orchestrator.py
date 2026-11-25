@@ -16,7 +16,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from ..catalog import CATALOG
-from ..geometry.validate import Issue
+from ..geometry.validate import Issue, validate_plan
 from ..schemas import Comment, Constraint, ConstraintSource, Plan, ProjectState, Rule, Stage
 from ..solver import generate_layout
 from ..store import VersionStore
@@ -49,13 +49,18 @@ class Orchestrator:
         n0 = len(self.llm.log)
         state = ProjectState(project_id=project_id, plan=plan, stage=Stage.plan_confirmed,
                              note="план и бриф")
+        plan_errors = [i for i in validate_plan(plan) if i.level == "error"]
         br = analyze_brief(self.llm, plan, brief_text)
         state.brief, state.constraints = br.brief, br.constraints
         res = generate_layout(plan, state.brief, state.constraints, time_limit=self.time_limit)
         state.layout, state.stage = res.layout, Stage.layout
         reply = _summary(res, [r.id for r in plan.rooms], prefix="Расставил мебель по брифу.")
         self._save(state, n0)
-        return Turn(state, reply, True, [r.id for r in plan.rooms], res.issues, br.warnings,
+        warnings = list(br.warnings)
+        if plan_errors:
+            warnings.append(f"в плане {len(plan_errors)} ошибок валидатора (aidesign validate): "
+                            + ", ".join(sorted({i.code for i in plan_errors})))
+        return Turn(state, reply, True, [r.id for r in plan.rooms], res.issues, warnings,
                     Usage.of(self.llm.log[n0:]))
 
     # --- правка к текущей версии ------------------------------------------------------
@@ -126,10 +131,13 @@ def _moved(a, b) -> bool:
     return b is None or abs(a.x - b.x) > 100 or abs(a.y - b.y) > 100 or a.rotation != b.rotation
 
 
+_KEY_NAMES = {"bath": "ванна или душ", "bed": "кровать"}  # ключи запросов, не типы каталога
+
+
 def _summary(res, rooms: list[str], prefix: str = "") -> str:
     parts = [prefix.strip()] if prefix.strip() else []
     for room_id, keys in res.unplaced.items():
-        names = [CATALOG[k].name_ru.lower() if k in CATALOG else k for k in keys]
+        names = [_KEY_NAMES.get(k) or (CATALOG[k].name_ru.lower() if k in CATALOG else k) for k in keys]
         parts.append(f"В {room_id} не поместилось: {', '.join(names)}.")
     errors = [i for i in res.issues if i.level == "error"]
     warns = [i for i in res.issues if i.level == "warning" and i.code != "not_placed"]
