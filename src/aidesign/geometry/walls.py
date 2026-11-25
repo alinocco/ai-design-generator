@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 
-from shapely.geometry import MultiPolygon, Point, Polygon
+from shapely.geometry import MultiPolygon, Point, Polygon, box
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 from shapely.prepared import prep
@@ -81,29 +81,66 @@ def _orthogonal_segments(poly: Polygon, t: float, snap: float, lo_k: float = 0.5
     def inside(x, y):
         return prepared.contains(Point(x, y))
 
-    segs = []
     lo, hi = lo_k * t, hi_k * t
-    # горизонтальные стены
+    horiz: list[tuple[float, float, float, float]] = []  # x0, x1, y0, y1
+    vert: list[tuple[float, float, float, float]] = []  # y0, y1, x0, x1
     for y0, y1 in zip(ys, ys[1:]):
         h = y1 - y0
         if not lo <= h <= hi:
             continue
         yc = (y0 + y1) / 2
         flags = [inside((x0 + x1) / 2, yc) for x0, x1 in zip(xs, xs[1:])]
-        for x0, x1 in _runs(flags, xs):
-            if x1 - x0 >= 1.5 * h:
-                segs.append(((x0, yc), (x1, yc), h))
-    # вертикальные стены
+        horiz += [(x0, x1, y0, y1) for x0, x1 in _runs(flags, xs) if x1 - x0 >= 1.5 * h]
     for x0, x1 in zip(xs, xs[1:]):
         w = x1 - x0
         if not lo <= w <= hi:
             continue
         xc = (x0 + x1) / 2
         flags = [inside(xc, (y0 + y1) / 2) for y0, y1 in zip(ys, ys[1:])]
-        for y0, y1 in _runs(flags, ys):
-            if y1 - y0 >= 1.5 * w:
-                segs.append(((xc, y0), (xc, y1), w))
+        vert += [(y0, y1, x0, x1) for y0, y1 in _runs(flags, ys) if y1 - y0 >= 1.5 * w]
+
+    horiz = _merge_bands(horiz, snap, hi)
+    vert = _merge_bands(vert, snap, hi)
+    h_rects = [box(x0, y0, x1, y1) for x0, x1, y0, y1 in horiz]
+    v_rects = [box(x0, y0, x1, y1) for y0, y1, x0, x1 in vert]
+    h_union = unary_union(h_rects) if h_rects else Polygon()
+    v_union = unary_union(v_rects) if v_rects else Polygon()
+
+    segs = []
+    # ложная «стена» — полоса, почти целиком лежащая внутри перпендикулярной стены
+    # (её рождают вершины соседних стен, режущие толстую стену сеткой)
+    for (x0, x1, y0, y1), r in zip(horiz, h_rects):
+        if r.intersection(v_union).area <= 0.7 * r.area:
+            segs.append(((x0, (y0 + y1) / 2), (x1, (y0 + y1) / 2), y1 - y0))
+    for (y0, y1, x0, x1), r in zip(vert, v_rects):
+        if r.intersection(h_union).area <= 0.7 * r.area:
+            segs.append((((x0 + x1) / 2, y0), ((x0 + x1) / 2, y1), x1 - x0))
     return segs
+
+
+def _merge_bands(bars, snap: float, max_t: float):
+    """Склеить соседние параллельные полосы одной стены, разрезанные лишними вершинами.
+
+    bars — (s0, s1, c0, c1): s — вдоль стены, c — поперёк.
+    """
+    bars = sorted(bars, key=lambda b: (b[2], b[0]))
+    changed = True
+    while changed:
+        changed = False
+        out: list[tuple[float, float, float, float]] = []
+        for b in bars:
+            for i, o in enumerate(out):
+                touch = abs(o[3] - b[2]) <= snap or abs(b[3] - o[2]) <= snap
+                overlap = min(o[1], b[1]) - max(o[0], b[0])
+                shorter = min(o[1] - o[0], b[1] - b[0])
+                if touch and overlap >= 0.8 * shorter and max(o[3], b[3]) - min(o[2], b[2]) <= max_t:
+                    out[i] = (min(o[0], b[0]), max(o[1], b[1]), min(o[2], b[2]), max(o[3], b[3]))
+                    changed = True
+                    break
+            else:
+                out.append(b)
+        bars = out
+    return bars
 
 
 def polygons_to_segments(
@@ -117,7 +154,7 @@ def polygons_to_segments(
     if not parts:
         return []
     # толщина известна (ResPlan) — узкий допуск; оценена — широкий, стены бывают разные
-    lo_k, hi_k = (0.55, 1.6) if thickness is not None else (0.3, 2.5)
+    lo_k, hi_k = (0.55, 1.6) if thickness is not None else (0.3, 4.0)
     if thickness is None:
         # для тонких вытянутых фигур площадь ≈ длина × t, периметр ≈ 2 × длина
         perim = sum(p.exterior.length + sum(r.length for r in p.interiors) for p in parts)

@@ -227,6 +227,7 @@ __marimo__/
 
 # Project data
 data/external/
+data/raw_plans/
 data/resplan/
 projects/
 out/

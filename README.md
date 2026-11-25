@@ -6,15 +6,20 @@ AI-генератор дизайн-проекта квартиры. Проект
 планировка, предложения по перепланировке и расстановка мебели и сантехники. На каждом
 этапе пользователь может оставить правку, и система перестраивает только то, что от неё зависит.
 
-Сейчас готов **шаг 0** — общий фундамент для всех агентов: схема данных, геометрия,
-валидатор, отрисовка и конвертеры датасетов. Агентов пока нет.
+Готово:
+- **шаг 0** — общий фундамент для всех агентов: схема данных, геометрия, валидатор,
+  отрисовка и конвертеры датасетов;
+- **Обмерщик v0** (шаг 1) — распознавание маркетинговых планов застройщиков без обучения,
+  с метрикой по подписанным площадям. Подробности и цифры — `docs/recognition.md`.
+
+Агентов на LLM пока нет.
 
 ## Установка
 
 Нужен Python 3.11+. Рекомендуем [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv sync --extra dev        # или: python -m venv .venv && pip install -e ".[dev]"
+uv sync --extra dev --extra recognition   # или: pip install -e ".[dev,recognition]"
 uv run pytest              # тесты
 ```
 
@@ -27,6 +32,10 @@ uv run aidesign render data/demo/demo_48_state.json -o out/demo.svg
 
 # конвертировать свою разметку LabelMe (правила — docs/annotation.md)
 uv run aidesign convert-labelme plans/pik_01.json -o data/plans/pik_01.json
+
+# распознать картинку плана и посчитать метрику по папке
+uv run aidesign recognize data/raw_plans/IMG_1662.PNG --debug
+uv run aidesign eval-recognition data/raw_plans
 
 # конвертировать ResPlan: квартиры до 120 м², не больше 3 спален, только без ошибок
 uv run aidesign convert-resplan data/external/ResPlan.pkl -o data/resplan --limit 500 \
@@ -41,6 +50,7 @@ src/aidesign/
   geometry/     площади, зоны дверей, разложение стен, валидатор плана, проверка расстановки
   render/       SVG-рендер плана и расстановки
   converters/   LabelMe → Plan, ResPlan → Plan
+  recognition/  Обмерщик v0: картинка плана → Plan (OpenCV + OCR + watershed)
   store.py      версии ProjectState: каждая версия — неизменяемый JSON
   cli.py        команды aidesign validate | render | convert-labelme | convert-resplan
 data/demo/      демо-квартира: план и полное состояние с брифом, правкой и расстановкой
@@ -48,8 +58,8 @@ docs/           правила разметки
 tests/
 ```
 
-Будущие папки: `agents/` (Обмерщик, Аналитик брифа, Нормоконтролёр, Планировщик,
-Критик, Оркестратор), `solver/` (CP-SAT), `recognition/` (CV-конвейер шага 1).
+Будущие папки: `agents/` (Аналитик брифа, Нормоконтролёр, Планировщик, Критик,
+Оркестратор), `solver/` (CP-SAT).
 
 ## Главные соглашения
 
@@ -72,7 +82,7 @@ tests/
 |---|---|---|
 | ResPlan | готовые планы для шагов 2–3 | [github.com/m-agour/ResPlan](https://github.com/m-agour/ResPlan), `ResPlan.zip` → `ResPlan.pkl`, CC BY 4.0 |
 | CubiCasa5K | обучение и проверка распознавания (шаг 1) | [arXiv 1904.01920](https://arxiv.org/abs/1904.01920) |
-| свои 15–20 планов | тест распознавания на российском оформлении | размечаем в LabelMe |
+| свои планы застройщиков | проверка распознавания на российском оформлении | `data/raw_plans/`, без разметки: метрика по подписанным площадям |
 
 Что выяснилось про ResPlan при написании конвертера: координаты в pickle лежат на холсте
 ~256 единиц, а не в метрах, как сказано в README датасета. Масштаб восстанавливается как

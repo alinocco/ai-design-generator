@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from shapely.geometry import LineString, Point as SPoint, Polygon
+from shapely.geometry import LineString, Polygon
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 

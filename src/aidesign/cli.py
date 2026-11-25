@@ -4,6 +4,8 @@
   aidesign render data/demo/demo_48.json -o out/demo.svg
   aidesign convert-labelme разметка.json -o data/plans/plan_01.json
   aidesign convert-resplan ResPlan.pkl -o data/resplan --limit 200
+  aidesign recognize data/raw_plans/plan.png --debug
+  aidesign eval-recognition data/raw_plans
 
 Файл на входе validate/render — Plan или ProjectState в JSON.
 """
@@ -96,6 +98,53 @@ def cmd_convert_resplan(args) -> int:
     return 0
 
 
+def cmd_recognize(args) -> int:
+    from .recognition import area_agreement, recognize
+
+    rec = recognize(args.path)
+    out = Path(args.output or Path(args.path).with_suffix(".plan.json"))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(rec.plan.model_dump_json(indent=2), encoding="utf-8")
+    ok, n = area_agreement(rec.plan)
+    print(f"{out}: помещений {len(rec.plan.rooms)}, проёмов {len(rec.plan.openings)}, "
+          f"масштаб {rec.mm_per_px:.1f} мм/px, площадь совпала у {ok} из {n} подписанных")
+    for note in rec.notes:
+        print(f"  ! {note}")
+    if args.debug:
+        import cv2
+
+        from .recognition.debug import overlay
+
+        dbg = out.with_suffix(".debug.png")
+        cv2.imwrite(str(dbg), overlay(args.path, rec))
+        print(f"  отладочная картинка: {dbg}")
+    return 0
+
+
+def cmd_eval_recognition(args) -> int:
+    """Метрика без ручной разметки: совпадение распознанных площадей с подписанными на плане."""
+    from .recognition import area_agreement, recognize
+
+    files = sorted(p for p in Path(args.folder).iterdir()
+                   if p.suffix.lower() in {".png", ".jpg", ".jpeg"})
+    tot5 = tot10 = total = failed = 0
+    for f in files:
+        try:
+            rec = recognize(f)
+        except Exception as e:  # noqa: BLE001
+            failed += 1
+            print(f"{f.name}: ошибка — {e}")
+            continue
+        ok5, n = area_agreement(rec.plan, 0.05)
+        ok10, _ = area_agreement(rec.plan, 0.10)
+        tot5, tot10, total = tot5 + ok5, tot10 + ok10, total + n
+        print(f"{f.name:40s} помещений {len(rec.plan.rooms):2d}  ±5%: {ok5}/{n}  ±10%: {ok10}/{n}")
+    if total:
+        print(f"\nИТОГО: планов {len(files)}, с ошибкой {failed}; помещений с подписью {total}; "
+              f"площадь совпала ±5% — {tot5 / total:.0%}, ±10% — {tot10 / total:.0%}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="aidesign")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -126,6 +175,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--keep-invalid", action="store_true",
                    help="сохранять и планы, на которых валидатор нашёл ошибки")
     p.set_defaults(func=cmd_convert_resplan)
+
+    p = sub.add_parser("recognize", help="картинка плана → plan.json (Обмерщик v0)")
+    p.add_argument("path")
+    p.add_argument("-o", "--output")
+    p.add_argument("--debug", action="store_true", help="сохранить картинку с наложением")
+    p.set_defaults(func=cmd_recognize)
+
+    p = sub.add_parser("eval-recognition", help="метрика распознавания по подписанным площадям")
+    p.add_argument("folder")
+    p.set_defaults(func=cmd_eval_recognition)
 
     args = ap.parse_args(argv)
     return args.func(args)
