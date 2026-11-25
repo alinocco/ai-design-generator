@@ -6,59 +6,44 @@ import re
 from dataclasses import dataclass, field
 
 from ..schemas import Constraint, ConstraintSource, ProjectState, Rule
-from .drafts import (RULES_TEXT, EditDraft, catalog_text, layout_text, plan_text,
-                     to_constraints)
+from .drafts import EditActionsDraft, layout_text, plan_text
+from .resolve import actions_to_constraints, resolve_items
 from .llm import LLMClient
 from .structured import ask_structured
 
-SYSTEM = """Ты — Агент правок в системе, которая расставляет мебель в квартире.
-Пользователь смотрит на текущую расстановку и пишет комментарий. Переведи его в изменения.
+SYSTEM = """Ты разбираешь комментарий пользователя к расстановке мебели в квартире.
 
 intent:
-- change — пользователь просит что-то изменить в расстановке;
-- question — спрашивает или просто комментирует («зачем…?», «сколько…?», «всё нравится»): ничего не меняем;
-- unsupported — просьба, которую система не умеет: снести или передвинуть стену, цвет и отделка,
-  сдвиг на точное расстояние («на 20 см левее»).
+- change — просит что-то изменить в мебели;
+- question — спрашивает или просто комментирует («зачем…?», «почему…?», «сколько…?», «всё нравится»);
+- unsupported — просит то, что не касается расстановки мебели или требует точности:
+  стены, ремонт, отделка, цвет, свет; сдвиг на точное расстояние («на 20 см левее»).
 
-constraints — правила по словарю ниже; subject — тип из каталога или id предмета из расстановки,
-room — id комнаты. Как выбрать предмет: сначала найди комнату, о которой говорит пользователь,
-потом предмет в ЭТОЙ комнате по списку расстановки. «Стол» в спальне — это рабочий стол из спальни.
+actions — при change КАЖДОЕ действие отдельно:
+- «убрать» — убери, не нужен, вместо X (убрать X);
+- «добавить» — добавь, поставь (новый предмет), вместо X поставь Y (добавить Y);
+- «оставить» — не трогай, оставь как есть, пусть остаётся;
+- «переставить» — переставь, перенеси, передвинь куда-нибудь (без точного расстояния);
+- «к окну» — поставь у окна, ближе к окну;
+- «больше места» — больше места перед предметом (size_mm, если названо: «метр» = 1000);
+- «не мешать двери» — предмет мешает открыть дверь;
+- «к стене».
+object — предмет в именительном падеже, как его назвал пользователь: «стол», «стиральная машина».
+room — комната словами, если названа: «спальня», «гостиная», «ванная».
+При question и unsupported actions пустой. reply — одна фраза по-русски.
 
-move — id предметов, которые пользователь просит переставить/перенести/передвинуть, НЕ говоря куда.
-move пустой, если предмет убирают (exclude), заменяют, ставят у окна (near) или если пользователь
-ничего не просил переставлять.
-
-rooms — id комнат, где что-то меняется. reply — одна-две фразы по-русски.
-
-Соответствия:
-- «убери X» → exclude; «добавь X», «поставь X» (которого нет) → require;
-- «X не трогай», «X оставь на месте» → keep с id предмета;
-- «X мешает открыть дверь» → move X и not_in_swing для X;
-- «больше места перед X» → min_clearance для X (mm ≈ 900, если число не названо);
-- «X у окна» → near, target "window";
-- «вместо X поставь Y» → exclude X и require Y.
-Не добавляй правил, о которых пользователь не говорил.
-
-Каталог предметов:
-{catalog}
-
-Правила (rule):
-{rules}
-
-Примеры для ДРУГОЙ квартиры (r5 — Гостиная: r5_sofa, r5_tv_stand, r5_armchair;
-r7 — Спальня: r7_bed, r7_wardrobe, r7_desk). Пустые поля опущены.
-«Шкаф в спальне мешает двери, перенеси его. Кровать оставь.» →
-{{"intent": "change", "constraints": [{{"rule": "not_in_swing", "subject": "wardrobe", "room": "r7"}}, {{"rule": "keep", "subject": "r7_bed"}}], "move": ["r7_wardrobe"], "rooms": ["r7"], "reply": "Переставлю шкаф, кровать останется."}}
-«Убери кресло из гостиной.» →
-{{"intent": "change", "constraints": [{{"rule": "exclude", "subject": "armchair", "room": "r5"}}], "move": [], "rooms": ["r5"], "reply": "Уберу кресло."}}
-«Поставь стол у окна.» →
-{{"intent": "change", "constraints": [{{"rule": "near", "subject": "desk", "room": "r7", "target": "window"}}], "move": [], "rooms": ["r7"], "reply": "Поставлю стол у окна."}}
-«Вместо дивана хочу два кресла.» →
-{{"intent": "change", "constraints": [{{"rule": "exclude", "subject": "sofa", "room": "r5"}}, {{"rule": "require", "subject": "armchair", "room": "r5"}}], "move": [], "rooms": ["r5"], "reply": "Уберу диван и поставлю кресло."}}
-«Зачем в гостиной тумба под телевизор?» →
-{{"intent": "question", "constraints": [], "move": [], "rooms": [], "reply": "Тумба под ТВ входит в стандартный набор гостиной. Если она не нужна, напишите «убери тумбу»."}}
-«Подвинь диван на 30 см вправо.» →
-{{"intent": "unsupported", "constraints": [], "move": [], "rooms": [], "reply": "Точные сдвиги пока не поддерживаются. Могу переставить диван в другое место."}}"""
+Пример: «Шкаф мешает открыть дверь, перенеси его. Кровать не трогай.»
+{"intent": "change", "actions": [{"action": "не мешать двери", "object": "шкаф"},
+{"action": "оставить", "object": "кровать"}], "reply": "Переставлю шкаф, кровать останется."}
+Пример: «Переставь диван куда-нибудь.»
+{"intent": "change", "actions": [{"action": "переставить", "object": "диван"}], "reply": "Найду дивану другое место."}
+Пример: «Вместо дивана в гостиной хочу кресло.»
+{"intent": "change", "actions": [{"action": "убрать", "object": "диван", "room": "гостиная"},
+{"action": "добавить", "object": "кресло", "room": "гостиная"}], "reply": "Уберу диван и поставлю кресло."}
+Пример: «Зачем в гостиной тумба под телевизор?»
+{"intent": "question", "actions": [], "reply": "Тумба входит в стандартный набор гостиной; если не нужна, напишите «убери тумбу»."}
+Пример: «Поклей обои в спальне.»
+{"intent": "unsupported", "actions": [], "reply": "Отделку я пока не подбираю, только расстановку мебели."}"""
 
 
 @dataclass
@@ -74,33 +59,44 @@ class EditResult:
 
 def parse_edit(llm: LLMClient, state: ProjectState, text: str, *, comment_id: str,
                target: str | None = None) -> EditResult:
-    system = SYSTEM.format(catalog=catalog_text(), rules=RULES_TEXT)
-    user = (f"План квартиры:\n{plan_text(state.plan)}\n\n"
-            f"Текущая расстановка:\n{layout_text(state.layout, state.plan)}\n\n"
-            + (f"Комментарий оставлен к объекту: {target}\n" if target else "")
+    user = (f"Комнаты:\n{plan_text(state.plan)}\n\n"
+            f"Расстановка:\n{layout_text(state.layout, state.plan)}\n\n"
+            + (f"Комментарий оставлен к предмету: {target}\n" if target else "")
             + f"Комментарий пользователя:\n{text.strip()}")
-    res = ask_structured(llm, EditDraft, system, user, agent="edit_agent")
-    d: EditDraft = res.value  # type: ignore[assignment]
-    conv = to_constraints(d.constraints, state.plan, state.layout, source=ConstraintSource.user,
-                          id_prefix=f"{comment_id}_c", comment_id=comment_id)
+    res = ask_structured(llm, EditActionsDraft, SYSTEM, user, agent="edit_agent")
+    d: EditActionsDraft = res.value  # type: ignore[assignment]
     items = {i.id: i for i in (state.layout.items if state.layout else [])}
-    move = [m for m in d.move if m in items]
-    for m in d.move:
-        if m not in items:
-            conv.warnings.append(f"move: предмет «{m}» не найден")
-    cons, move, notes = reconcile(conv.constraints, move, items)
-    conv.warnings += notes
-    intent = d.intent
-    if intent != "change":  # вопрос или «не умею» — правила модели игнорируем
+    actions = list(d.actions)
+    # «поставь X у окна» модели часто размечают как «переставить»: окно в тексте — значит, к окну
+    if _WINDOW.search(text):
+        for a in actions:
+            if a.action == "переставить":
+                a.action = "к окну"
+    if target in items:  # «этот стол убери» — предмет, к которому оставлен комментарий
+        t_item = items[target]
+        for a in actions:
+            hits = resolve_items(a.object, None, state.layout)
+            if any(h.type == t_item.type for h in hits) or not hits:
+                if not a.room:
+                    a.room = t_item.room
+    conv = actions_to_constraints(actions, state.plan, state.layout, source=ConstraintSource.user,
+                                  id_prefix=f"{comment_id}_c", comment_id=comment_id)
+    cons, move, notes = reconcile(conv.constraints, conv.move, items)
+    warnings = conv.warnings + notes
+    intent, reply = d.intent, d.reply
+    if intent != "change":  # вопрос или «не умею» — действия модели игнорируем
         cons, move = [], []
     elif _EXACT_SHIFT.search(text):
         intent, cons, move = "unsupported", [], []
-        d.reply = "Точные сдвиги на заданное расстояние пока не поддерживаются. Могу переставить предмет в другое место."
-    rooms = affected_rooms(state, cons, move, d.rooms) if (cons or move) else []
+        reply = ("Точные сдвиги на заданное расстояние пока не поддерживаются. "
+                 "Могу переставить предмет в другое место.")
+    rooms = affected_rooms(state, cons, move, []) if (cons or move) else []
     if intent == "change" and not (cons or move):
         intent = "question"
-    return EditResult(intent, cons, move, rooms, d.reply, conv.warnings, res.attempts)
+    return EditResult(intent, cons, move, rooms, reply, warnings, res.attempts)
 
+
+_WINDOW = re.compile(r"\bокн|\bокош", re.I)
 
 # «сдвинь на 20 см», «подвинь кровать на полметра левее» — точный сдвиг солвер не умеет
 _EXACT_SHIFT = re.compile(

@@ -26,14 +26,17 @@ def demo_layout() -> Layout:
 
 def _brief(**kw):
     d = {"adults": 2, "children": 0, "remote_work": False, "pets": False, "style": [],
-         "must_have": [], "nice_to_have": [], "avoid": [], "budget_rub": None, "constraints": []}
+         "must_have": [], "nice_to_have": [], "avoid": [], "budget_rub": None, "actions": []}
     d.update(kw)
     return json.dumps(d, ensure_ascii=False)
 
 
-def _edit(intent="change", constraints=(), move=(), rooms=(), reply="ок"):
-    return json.dumps({"intent": intent, "constraints": list(constraints), "move": list(move),
-                       "rooms": list(rooms), "reply": reply}, ensure_ascii=False)
+def _edit(intent="change", actions=(), reply="ок"):
+    return json.dumps({"intent": intent, "actions": list(actions), "reply": reply}, ensure_ascii=False)
+
+
+def _a(action, obj, room=None, **kw):
+    return {"action": action, "object": obj, "room": room, **kw}
 
 
 # --- разбор ответа -------------------------------------------------------------------
@@ -49,7 +52,8 @@ def test_inline_schema_has_no_refs():
 
 
 def test_retry_after_invalid_answer():
-    llm = FakeLLM(["я не знаю", '{"intent": "maybe"}', _edit("question")])
+    llm = FakeLLM(["я не знаю", '{"intent": "maybe"}',
+                   json.dumps({"intent": "question", "constraints": [], "move": [], "rooms": [], "reply": ""})])
     res = ask_structured(llm, EditDraft, "sys", "user", agent="t")
     assert res.attempts == 3 and res.value.intent == "question"
     # модель видит свою ошибку
@@ -97,11 +101,9 @@ def test_merge_new_rule_replaces_old(demo_plan):
 
 def test_orchestrator_brief_then_edit(demo_plan, tmp_path):
     llm = FakeLLM([
-        _brief(remote_work=True, constraints=[{"rule": "require", "subject": "desk"},
-                                              {"rule": "exclude", "subject": "bathtub"}]),
-        _edit(constraints=[{"rule": "keep", "subject": "r2_bed"},
-                           {"rule": "exclude", "subject": "desk", "room": "r2"}],
-              move=["r2_wardrobe"], rooms=["r2"], reply="Убираю стол, шкаф переставлю."),
+        _brief(remote_work=True, actions=[_a("добавить", "рабочий стол"), _a("убрать", "ванна")]),
+        _edit(actions=[_a("оставить", "кровать"), _a("убрать", "стол", "спальня"),
+                       _a("переставить", "шкаф")], reply="Убираю стол, шкаф переставлю."),
         _edit("question", reply="Площадь спальни 11,4 м²."),
     ])
     store = VersionStore(tmp_path)
@@ -202,19 +204,29 @@ def test_config_from_env_file(tmp_path, monkeypatch):
 
 # --- набор для оценки согласован с планом: «идеальная» модель получает 100% -----------
 
+_ACT = {"exclude": "убрать", "require": "добавить", "keep": "оставить", "near": "к окну",
+        "min_clearance": "больше места", "not_in_swing": "не мешать двери", "against_wall": "к стене"}
+
+
 def _oracle(cases, kind):
+    """«Идеальная» модель: переводит ожидаемые правила обратно в действия словами."""
+    from aidesign.catalog import CATALOG
     by_text = {c["text"]: c for c in cases}
 
     def reply(messages):
         user = messages[1]["content"]
         case = next(c for t, c in by_text.items() if user.rstrip().endswith(t))
         exp = case["expect"]
-        cons = [dict(c, hard=True) for c in exp.get("constraints", [])]
+        acts = []
+        for c in exp.get("constraints", []):
+            obj = c["subject"] if c["rule"] == "keep" else CATALOG[c["subject"]].name_ru
+            acts.append(_a(_ACT[c["rule"]], obj, c.get("room")))
+        acts += [_a("переставить", m) for m in exp.get("move", [])]
         if kind == "brief":
             occ = {"adults": 1, "children": 0, "remote_work": False, "pets": False}
             occ.update(exp.get("occupants", {}))
-            return _brief(**occ, constraints=cons)
-        return _edit(exp.get("intent", "change"), cons, exp.get("move", []))
+            return _brief(**occ, actions=acts)
+        return _edit(exp.get("intent", "change"), acts)
     return reply
 
 
@@ -267,21 +279,19 @@ def test_edit_question_and_shift_never_change(demo_plan, demo_layout):
     from aidesign.agents import parse_edit
     state = ProjectState(project_id="x", plan=demo_plan, layout=demo_layout)
     # модель ошиблась с намерением — код всё равно не даёт точный сдвиг
-    llm = FakeLLM([_edit(constraints=[{"rule": "min_clearance", "subject": "bed_double"}],
-                         move=["r2_bed"], rooms=["r2"])])
+    llm = FakeLLM([_edit(actions=[_a("больше места", "кровать"), _a("переставить", "кровать")])])
     res = parse_edit(llm, state, "Сдвинь кровать на 20 см левее", comment_id="c1")
     assert res.intent == "unsupported" and not res.constraints and not res.move
     # question с правилами — правила отбрасываются
-    llm = FakeLLM([_edit("question", constraints=[{"rule": "exclude", "subject": "nightstand"}])])
+    llm = FakeLLM([_edit("question", actions=[_a("убрать", "тумбочка")])])
     res = parse_edit(llm, state, "Зачем две тумбочки?", comment_id="c2")
     assert res.intent == "question" and not res.constraints and not res.rooms
 
 
 def test_brief_near_implies_require(demo_plan):
     from aidesign.agents import analyze_brief
-    llm = FakeLLM([_brief(constraints=[{"rule": "near", "subject": "armchair", "target": "window"},
-                                       {"rule": "near", "subject": "desk", "target": "window"},
-                                       {"rule": "require", "subject": "desk"}])])
+    llm = FakeLLM([_brief(actions=[_a("к окну", "кресло"), _a("к окну", "рабочий стол"),
+                                   _a("добавить", "стол")])])
     res = analyze_brief(llm, demo_plan, "Кресло и стол у окна")
     got = [(c.rule.value, c.subject) for c in res.constraints]
     assert got.count(("require", "armchair")) == 1 and got.count(("require", "desk")) == 1
@@ -292,3 +302,44 @@ def test_layout_text_groups_by_room(demo_plan, demo_layout):
     txt = layout_text(demo_layout, demo_plan)
     bedroom = txt.split("r2 — Спальня:")[1].split("\nr3")[0]
     assert "r2_desk — Рабочий стол" in bedroom and "dining_table" not in bedroom
+
+
+@pytest.mark.parametrize("phrase,room,expected", [
+    ("стол", "r2", ["r2_desk"]), ("стол", "r1", ["r1_dining_table"]),
+    ("обеденный стол", None, ["r1_dining_table"]), ("рабочее место", None, ["r2_desk"]),
+    ("тумба под телевизор", None, ["r1_tv_stand"]), ("стиралку", None, ["r3_washer"]),
+    ("тумбочки", "r2", ["r2_bed_nightstand_l0", "r2_bed_nightstand_r0"]), ("r2_bed", None, ["r2_bed"]),
+    ("джакузи", None, ["r3_bath"]), ("пианино", None, []),
+])
+def test_resolve_items(demo_layout, phrase, room, expected):
+    from aidesign.agents.resolve import resolve_items
+    assert [i.id for i in resolve_items(phrase, room, demo_layout)] == expected
+
+
+@pytest.mark.parametrize("phrase,room_id", [("спальня", "r2"), ("в спальне", "r2"), ("гостиная", "r1"),
+                                            ("кухня", "r1"), ("ванная", "r3"), ("санузел", "r3"),
+                                            ("прихожая", "r4"), ("r3", "r3"), ("балкон", None)])
+def test_resolve_room(demo_plan, phrase, room_id):
+    from aidesign.agents.resolve import resolve_room
+    assert resolve_room(demo_plan, phrase)[0] == room_id
+
+
+def test_window_phrase_fixes_move(demo_plan, demo_layout):
+    from aidesign.agents import parse_edit
+    state = ProjectState(project_id="x", plan=demo_plan, layout=demo_layout)
+    res = parse_edit(FakeLLM([_edit(actions=[_a("переставить", "диван")])]), state,
+                     "Хочу, чтобы диван стоял у окна.", comment_id="c1")
+    assert not res.move and [(c.rule.value, c.subject, c.target) for c in res.constraints] == \
+        [("near", "sofa", "window")]
+
+
+def test_shower_replaces_bath_and_dedupe(demo_plan):
+    from aidesign.agents.resolve import actions_to_constraints
+    from aidesign.agents.drafts import ActionDraft as A
+    res = actions_to_constraints([A(action="добавить", object="душевая"),
+                                  A(action="добавить", object="рабочий стол", room="спальня"),
+                                  A(action="добавить", object="стол")],
+                                 demo_plan, None, source=ConstraintSource.brief, id_prefix="b")
+    got = [(c.rule.value, c.subject, c.room) for c in res.constraints]
+    assert ("exclude", "bathtub", None) in got
+    assert got.count(("require", "desk", "r2")) == 1 and ("require", "desk", None) not in got

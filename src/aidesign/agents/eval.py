@@ -133,7 +133,7 @@ def eval_briefs(llm: LLMClient, plan: Plan, cases: list[dict]) -> Report:
 def eval_edits(llm: LLMClient, state: ProjectState, cases: list[dict]) -> Report:
     rep = Report("edit", llm.config.model)
     n0 = len(llm.log)
-    intent_ok = 0
+    intent_ok = change_ok = 0
     move_tp = move_fp = move_fn = 0
     for k, case in enumerate(cases):
         t0 = time.perf_counter()
@@ -152,6 +152,7 @@ def eval_edits(llm: LLMClient, state: ProjectState, cases: list[dict]) -> Report
         move_fn += len(em - gm)
         good_intent = res.intent == exp.get("intent", "change")
         intent_ok += good_intent
+        change_ok += (res.intent == "change") == (exp.get("intent", "change") == "change")
         ok = good_intent and fp == 0 and fn == 0 and em == gm
         detail = (f"[{res.intent}] " + "; ".join(
             f"{c.rule.value} {c.subject}" + (f"@{c.room}" if c.room else "")
@@ -160,6 +161,7 @@ def eval_edits(llm: LLMClient, state: ProjectState, cases: list[dict]) -> Report
         rep.cases.append(CaseResult(case["id"], ok, tp, fp, fn, res.attempts,
                                     time.perf_counter() - t0, detail=detail))
     rep.extra["intent_acc"] = intent_ok / max(len(cases), 1)
+    rep.extra["change_acc"] = change_ok / max(len(cases), 1)  # менять / не менять
     rep.extra["move_recall"] = move_tp / max(move_tp + move_fn, 1)
     rep.extra["move_precision"] = move_tp / max(move_tp + move_fp, 1)
     rep.usage = Usage.of(llm.log[n0:])

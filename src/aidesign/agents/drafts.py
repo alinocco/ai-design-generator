@@ -30,6 +30,39 @@ class ConstraintDraft(BaseModel):
     hard: bool = Field(True, description="true — обязательно, false — по возможности")
 
 
+ActionName = Literal["убрать", "добавить", "оставить", "переставить", "к окну", "больше места",
+                     "не мешать двери", "к стене"]
+
+
+class ActionDraft(BaseModel):
+    """Одно действие обычными словами — так небольшой модели проще, чем сразу правилами."""
+
+    action: ActionName
+    object: str = Field(description="предмет, как назвал пользователь, в именительном падеже: «рабочий стол»")
+    room: str | None = Field(None, description="комната, если названа: «спальня», «кухня»")
+    size_mm: int | None = Field(None, description="для «больше места»: сколько мм, если названо")
+    hard: bool = Field(True, description="false, если «по возможности», «хорошо бы»")
+
+
+class BriefActionsDraft(BaseModel):
+    adults: int = Field(1, ge=0, le=10)
+    children: int = Field(0, ge=0, le=10)
+    remote_work: bool = False
+    pets: bool = False
+    style: list[str] = []
+    must_have: list[str] = []
+    nice_to_have: list[str] = []
+    avoid: list[str] = []
+    budget_rub: int | None = None
+    actions: list[ActionDraft] = []
+
+
+class EditActionsDraft(BaseModel):
+    intent: Literal["change", "question", "unsupported"]
+    actions: list[ActionDraft] = []
+    reply: str = ""
+
+
 class BriefDraft(BaseModel):
     adults: int = Field(1, ge=0, le=10)
     children: int = Field(0, ge=0, le=10)
