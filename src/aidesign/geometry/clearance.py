@@ -11,11 +11,13 @@ from shapely.geometry import Point as SPoint, Polygon
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
-from ..schemas import Item, Layout, OpeningKind, Plan
+from ..schemas import Item, Layout, OpeningKind, Plan, RoomType
 from .core import door_swing, item_polygon, opening_polygon, room_polygon
 from .validate import Issue
 
 MIN_PASSAGE_MM = 700.0
+WET_PASSAGE_MM = 600.0  # в санузлах норма — 600 мм свободного места перед прибором
+WET_ROOMS = {RoomType.bathroom, RoomType.toilet}
 
 
 def free_space(plan: Plan, room_id: str, items: list[Item]) -> BaseGeometry:
@@ -39,7 +41,7 @@ def _door_entry_point(plan: Plan, room: Polygon, o) -> SPoint:
     return inside.representative_point() if not inside.is_empty else SPoint(o.a)
 
 
-def check_layout(plan: Plan, layout: Layout, min_passage: float = MIN_PASSAGE_MM) -> list[Issue]:
+def check_layout(plan: Plan, layout: Layout, min_passage: float | None = None) -> list[Issue]:
     issues: list[Issue] = []
     by_room: dict[str, list[Item]] = {}
     for it in layout.items:
@@ -48,6 +50,8 @@ def check_layout(plan: Plan, layout: Layout, min_passage: float = MIN_PASSAGE_MM
     for room_id, items in by_room.items():
         room = room_polygon(plan.room(room_id))
         polys = {it.id: item_polygon(it) for it in items}
+        passage = min_passage or (WET_PASSAGE_MM if plan.room(room_id).type in WET_ROOMS
+                                  else MIN_PASSAGE_MM)
 
         for it in items:
             if not room.buffer(1).contains(polys[it.id]):
@@ -72,15 +76,18 @@ def check_layout(plan: Plan, layout: Layout, min_passage: float = MIN_PASSAGE_MM
 
         if doors:
             free = room.difference(unary_union(list(polys.values())))
-            core = free.buffer(-min_passage / 2)
+            core = free.buffer(-passage / 2)
             starts = [_door_entry_point(plan, room, o) for o in doors]
-            reach = _components_touching(core, starts, min_passage)
+            reach = _components_touching(core, starts, passage)
+            # человек в проходе дотягивается ещё на ~15 см: раковина в нише рядом с унитазом доступна
+            reach_zone = reach.buffer(passage / 2 + 150) if not reach.is_empty else reach
             for it in items:
-                approach = polys[it.id].buffer(min_passage / 2 + 50)
-                if reach.is_empty or not reach.buffer(min_passage / 2).intersects(approach):
+                # пристройку (тумбочку у кровати) достаточно достать через её основной предмет
+                group = [polys[j] for j in polys if j == it.id or it.id.startswith(j + "_")]
+                if reach.is_empty or not any(reach_zone.intersects(g.buffer(50)) for g in group):
                     issues.append(Issue(
                         code="no_passage", level="warning", object_id=it.id,
-                        message=(f"К {it.type} ({it.id}) нет прохода шириной {min_passage:.0f} мм "
+                        message=(f"К {it.type} ({it.id}) нет прохода шириной {passage:.0f} мм "
                                  "от двери."),
                     ))
     return issues

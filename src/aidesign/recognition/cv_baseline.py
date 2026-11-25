@@ -341,6 +341,9 @@ def recognize(path: str | Path, use_ocr: bool = True) -> Recognition:
 
     plan = Plan(walls=walls, openings=openings, rooms=rooms,
                 source=PlanSource(kind="recognized", ref=Path(path).name, mm_per_px=round(k, 3)))
+    from ..geometry.room_types import infer_room_types
+
+    infer_room_types(plan)  # грубая догадка по геометрии; позже — VLM
     return Recognition(plan=plan, image_size=(img.shape[1], img.shape[0]), mm_per_px=k,
                        labels=labels, wall_px=t, notes=notes)
 

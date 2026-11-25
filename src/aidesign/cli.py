@@ -6,6 +6,8 @@
   aidesign convert-resplan ResPlan.pkl -o data/resplan --limit 200
   aidesign recognize data/raw_plans/plan.png --debug
   aidesign eval-recognition data/raw_plans
+  aidesign layout data/demo/demo_48.json -o out/demo_layout.json   (+ рядом .svg)
+  aidesign layout out/demo_layout.json --rooms r2 --keep r2_bed      (перегенерировать спальню)
 
 Файл на входе validate/render — Plan или ProjectState в JSON.
 """
@@ -145,6 +147,42 @@ def cmd_eval_recognition(args) -> int:
     return 0
 
 
+def cmd_layout(args) -> int:
+    from .schemas import Constraint, ConstraintSource, Rule, Stage
+    from .solver import generate_layout
+
+    plan, state = _load(args.path)
+    if state is None:
+        state = ProjectState(project_id=Path(args.path).stem, plan=plan)
+    constraints = list(state.constraints)
+    for item_id in args.keep or []:
+        constraints.append(Constraint(id=f"cli_keep_{item_id}", kind="hard", rule=Rule.keep,
+                                      subject=item_id, source=ConstraintSource.system))
+    rooms = args.rooms.split(",") if args.rooms else None
+    res = generate_layout(plan, state.brief, constraints, previous=state.layout, rooms=rooms,
+                          seed=args.seed, time_limit=args.time_limit)
+    for rr in res.rooms:
+        extra = f" не поместилось: {', '.join(rr.unplaced)}" if rr.unplaced else ""
+        print(f"{rr.room_id:>12} {plan.room(rr.room_id).type.value:<14} {rr.status:<10} "
+              f"{rr.seconds:5.2f} с, предметов {len(rr.items)}{extra}")
+        for n in rr.notes:
+            print(f"{'':>14}{n}")
+    for i in res.issues:
+        print(f"[{i.level}] {i.code} {i.object_id or ''}: {i.message}")
+    if state.layout is not None:
+        new = state.next_version("расстановка" + (f": {args.rooms}" if args.rooms else ""))
+    else:
+        new = state.model_copy(deep=True)
+    new.layout, new.stage = res.layout, Stage.layout
+    out = Path(args.output or Path(args.path).with_name(Path(args.path).stem + "_layout.json"))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(new.model_dump_json(indent=1), encoding="utf-8")
+    out.with_suffix(".svg").write_text(render_plan(plan, layout=res.layout, issues=res.issues),
+                                       encoding="utf-8")
+    print(out, out.with_suffix(".svg"))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="aidesign")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -185,6 +223,15 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("eval-recognition", help="метрика распознавания по подписанным площадям")
     p.add_argument("folder")
     p.set_defaults(func=cmd_eval_recognition)
+
+    p = sub.add_parser("layout", help="расставить мебель (каталог + солвер CP-SAT + Критик)")
+    p.add_argument("path", help="plan.json или state.json")
+    p.add_argument("-o", "--output")
+    p.add_argument("--rooms", help="пересчитать только эти комнаты, через запятую")
+    p.add_argument("--keep", nargs="*", help="id предметов, которые оставить на месте")
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--time-limit", type=float, default=5.0)
+    p.set_defaults(func=cmd_layout)
 
     args = ap.parse_args(argv)
     return args.func(args)

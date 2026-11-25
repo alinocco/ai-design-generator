@@ -191,7 +191,7 @@ def resplan_to_plan(p: dict, ref: str | None = None) -> Plan:
 
 def _clean_polygon(part: Polygon) -> Polygon | None:
     """Валидный полигон без дыр и шипов, на сетке 1 мм (схема хранит только контур)."""
-    g = part.buffer(-15).buffer(15)  # убрать щели и шипы тоньше 3 см
+    g = part.buffer(-15, join_style=2).buffer(15, join_style=2)  # убрать щели и шипы тоньше 3 см
     parts = _parts(g)
     if not parts:
         return None
