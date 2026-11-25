@@ -10,9 +10,17 @@ AI-генератор дизайн-проекта квартиры. Проект
 - **шаг 0** — общий фундамент для всех агентов: схема данных, геометрия, валидатор,
   отрисовка и конвертеры датасетов;
 - **Обмерщик v0** (шаг 1) — распознавание маркетинговых планов застройщиков без обучения,
-  с метрикой по подписанным площадям. Подробности и цифры — `docs/recognition.md`.
+  с метрикой по подписанным площадям. Подробности и цифры — `docs/recognition.md`;
+- **расстановка v0** (шаг 3) — каталог мебели и сантехники, солвер CP-SAT для каждой комнаты,
+  геометрический Критик, который возвращает комнату на пересчёт, и частичная перегенерация
+  по правке. Типы комнат после распознавания угадываются простыми правилами.
+  Подробности и цифры — `docs/layout.md`.
 
-Агентов на LLM пока нет.
+![Распознавание плана застройщика](docs/img/recognition_pipeline.png)
+
+![Расстановка на квартире из ResPlan до и после цикла с Критиком](docs/img/layout_critic.png)
+
+Агентов на LLM пока нет. Шаг 2 (перепланировка) — следующий.
 
 ## Установка
 
@@ -37,6 +45,10 @@ uv run aidesign convert-labelme plans/pik_01.json -o data/plans/pik_01.json
 uv run aidesign recognize data/raw_plans/IMG_1662.PNG --debug
 uv run aidesign eval-recognition data/raw_plans
 
+# расставить мебель (рядом появится .svg), потом пересчитать только спальню, оставив кровать
+uv run aidesign layout data/demo/demo_48.json -o out/demo_layout.json
+uv run aidesign layout out/demo_layout.json --rooms r2 --keep r2_bed --seed 1
+
 # конвертировать ResPlan: квартиры до 120 м², не больше 3 спален, только без ошибок
 uv run aidesign convert-resplan data/external/ResPlan.pkl -o data/resplan --limit 500 \
     --split train --split-file data/external/split.json
@@ -51,15 +63,18 @@ src/aidesign/
   render/       SVG-рендер плана и расстановки
   converters/   LabelMe → Plan, ResPlan → Plan
   recognition/  Обмерщик v0: картинка плана → Plan (OpenCV + OCR + watershed)
+  catalog.py    каталог мебели и сантехники, набор предметов для комнаты по типу и площади
+  solver/       расстановка: CP-SAT для одной комнаты, сборка квартиры и цикл с Критиком
   store.py      версии ProjectState: каждая версия — неизменяемый JSON
-  cli.py        команды aidesign validate | render | convert-labelme | convert-resplan
+  cli.py        команды aidesign validate | render | convert-labelme | convert-resplan |
+                recognize | eval-recognition | layout
 data/demo/      демо-квартира: план и полное состояние с брифом, правкой и расстановкой
-docs/           правила разметки
+docs/           правила разметки, заметки о распознавании и расстановке
 tests/
 ```
 
-Будущие папки: `agents/` (Аналитик брифа, Нормоконтролёр, Планировщик, Критик,
-Оркестратор), `solver/` (CP-SAT).
+Будущая папка: `agents/` (Аналитик брифа, Нормоконтролёр, Планировщик, Критик,
+Оркестратор) — LLM-обёртки вокруг уже готовых солвера и проверок.
 
 ## Главные соглашения
 
