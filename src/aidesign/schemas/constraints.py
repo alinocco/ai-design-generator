@@ -28,6 +28,7 @@ class Rule(str, Enum):
     min_clearance = "min_clearance"  # params.mm
     in_room = "in_room"
     exclude = "exclude"  # subject не ставить
+    require = "require"  # subject обязательно поставить (hard) или по возможности (soft)
     keep = "keep"  # зафиксировать текущее положение
     no_demolition = "no_demolition"  # для стен
     within_riser_radius = "within_riser_radius"  # params.mm

@@ -5,8 +5,8 @@
 Поворот — по часовой стрелке: 90 — спинка справа, 180 — снизу, 270 — слева.
 
 Зона обслуживания (clear_front) — свободное место перед лицевой стороной: чтобы открыть
-шкаф, сесть за стол, подойти к кровати. Солвер не даёт зонам перекрываться с мебелью,
-дверями и друг с другом.
+шкаф, сесть за стол, подойти к кровати. Солвер не даёт зонам перекрываться с мебелью
+и створками дверей; зоны соседних предметов могут делить общий свободный пол.
 
 Габариты — типичные для российского рынка; уточняйте под свой проект.
 """
@@ -63,6 +63,29 @@ CATALOG: dict[str, Spec] = {s.type: s for s in [
     # прихожая
     Spec("hall_wardrobe", "Шкаф в прихожей", ((1200, 450), (800, 450)), clear_front=700),
 ]}
+
+
+# Куда ставить предмет, если правило require не указало комнату: типы комнат по приоритету
+HOME_ROOMS: dict[str, tuple[RoomType, ...]] = {
+    "bed_double": (RoomType.bedroom,),
+    "bed_single": (RoomType.bedroom, RoomType.living),
+    "wardrobe": (RoomType.bedroom, RoomType.hall, RoomType.living),
+    "desk": (RoomType.bedroom, RoomType.living, RoomType.kitchen_living),
+    "sofa": (RoomType.living, RoomType.kitchen_living, RoomType.kitchen),
+    "armchair": (RoomType.living, RoomType.kitchen_living, RoomType.bedroom),
+    "tv_stand": (RoomType.living, RoomType.kitchen_living, RoomType.bedroom),
+    "bookcase": (RoomType.living, RoomType.bedroom, RoomType.kitchen_living),
+    "kitchen_run": (RoomType.kitchen, RoomType.kitchen_living),
+    "fridge": (RoomType.kitchen, RoomType.kitchen_living, RoomType.hall),
+    "dining_table": (RoomType.kitchen, RoomType.kitchen_living, RoomType.living),
+    "bathtub": (RoomType.bathroom,),
+    "shower": (RoomType.bathroom,),
+    "toilet": (RoomType.toilet, RoomType.bathroom),
+    "sink": (RoomType.bathroom, RoomType.toilet),
+    "washer": (RoomType.bathroom, RoomType.kitchen, RoomType.kitchen_living, RoomType.hall),
+    "hall_wardrobe": (RoomType.hall, RoomType.corridor),
+    "nightstand": (RoomType.bedroom,),
+}
 
 
 @dataclass

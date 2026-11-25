@@ -8,7 +8,7 @@ from ..catalog import program_for
 from ..geometry.clearance import check_layout
 from ..geometry.core import room_area_m2
 from ..geometry.validate import Issue
-from ..catalog import CATALOG
+from ..catalog import CATALOG, HOME_ROOMS, Request
 from ..geometry.clearance import MIN_PASSAGE_MM, WET_PASSAGE_MM, WET_ROOMS
 from ..schemas import Brief, Constraint, ConstraintSource, Item, Layout, Plan, Rule
 from .room import RoomResult, solve_room
@@ -29,6 +29,46 @@ def _room_constraints(constraints: list[Constraint], room_id: str) -> list[Const
     return [c for c in constraints if c.room in (None, room_id)]
 
 
+def _requirements(plan: Plan, constraints: list[Constraint]) -> dict[str, list[Constraint]]:
+    """Правила require → комната, куда добавить предмет.
+
+    Без указанной комнаты берём самую большую комнату подходящего типа (HOME_ROOMS)."""
+    out: dict[str, list[Constraint]] = {}
+    for c in constraints:
+        if c.rule != Rule.require:
+            continue
+        room_id = c.room
+        if room_id is None:
+            for rt in HOME_ROOMS.get(c.subject, ()):
+                cands = [r for r in plan.rooms if r.type == rt]
+                if cands:
+                    room_id = max(cands, key=room_area_m2).id
+                    break
+        if room_id is not None:
+            out.setdefault(room_id, []).append(c)
+    return out
+
+
+def _apply_requirements(requests: list[Request], reqs: list[Constraint]) -> list[Request]:
+    requests = list(requests)
+    for c in reqs:
+        if c.subject not in CATALOG:
+            continue
+        hit = next((r for r in requests if c.subject in r.alternatives), None)
+        if hit is None:
+            requests.append(Request((c.subject,), required=c.kind == "hard",
+                                    weight=int(300 * (c.weight or 1)), key=c.subject))
+        else:
+            # «нужна именно ванна» — выбранный тип становится первым и единственным
+            if len(hit.alternatives) > 1:
+                hit.alternatives = (c.subject,)
+            if c.kind == "hard":
+                hit.required = True
+            else:
+                hit.weight = max(hit.weight, int(300 * (c.weight or 1)))
+    return requests
+
+
 def generate_layout(
     plan: Plan,
     brief: Brief | None = None,
@@ -39,16 +79,25 @@ def generate_layout(
     seed: int = 0,
     time_limit: float = 5.0,
     critic_rounds: int = 2,
+    move: list[str] | None = None,
 ) -> LayoutResult:
     """Расставить мебель.
 
     rooms — пересчитать только эти комнаты (частичная перегенерация после правки);
     остальные берутся из previous без изменений. Ограничение keep фиксирует предмет на месте.
+    move — id предметов из previous, которые надо поставить на новое место.
     """
     constraints = constraints or []
     remote = bool(brief and brief.occupants.remote_work)
     adults = brief.occupants.adults if brief else 2
     keep_ids = {c.subject for c in constraints if c.rule == Rule.keep}
+
+    required_by_room = _requirements(plan, constraints)
+    prev_by_id = {i.id: i for i in (previous.items if previous else [])}
+    avoid_by_room: dict[str, list[Item]] = {}
+    for mid in move or []:
+        if mid in prev_by_id:
+            avoid_by_room.setdefault(prev_by_id[mid].room, []).append(prev_by_id[mid])
 
     items: list[Item] = []
     results: list[RoomResult] = []
@@ -62,14 +111,16 @@ def generate_layout(
         fixed = [i for i in prev_items
                  if i.id in keep_ids or any(i.id.startswith(k + "_") for k in keep_ids)]
         fixed_keys = {i.id.removeprefix(f"{room.id}_") for i in fixed}
-        requests = [r for r in program_for(room.type, room_area_m2(room), remote, adults)
-                    if r.key not in fixed_keys]
+        requests = _apply_requirements(
+            program_for(room.type, room_area_m2(room), remote, adults),
+            required_by_room.get(room.id, []))
+        requests = [r for r in requests if r.key not in fixed_keys]
         if not requests:
             items.extend(fixed)
             continue
         jobs[room.id] = (requests, _room_constraints(constraints, room.id), fixed)
         rr = solve_room(plan, room.id, requests, jobs[room.id][1], fixed=fixed,
-                        time_limit=time_limit, seed=seed)
+                        time_limit=time_limit, seed=seed, avoid=avoid_by_room.get(room.id))
         results.append(rr)
         items.extend(fixed + rr.items)
 
@@ -102,7 +153,7 @@ def generate_layout(
             new_cons += extra
             old = next(r for r in results if r.room_id == room_id)
             rr = solve_room(plan, room_id, requests, new_cons, fixed=fixed,
-                            time_limit=time_limit, seed=seed)
+                            time_limit=time_limit, seed=seed, avoid=avoid_by_room.get(room_id))
             if len(rr.unplaced) > len(old.unplaced):
                 continue
             trial = Layout(variant=variant, items=[i for i in layout.items if i.room != room_id]

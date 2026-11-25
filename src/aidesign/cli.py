@@ -8,6 +8,10 @@
   aidesign eval-recognition data/raw_plans
   aidesign layout data/demo/demo_48.json -o out/demo_layout.json   (+ рядом .svg)
   aidesign layout out/demo_layout.json --rooms r2 --keep r2_bed      (перегенерировать спальню)
+  aidesign llm-check                                                  (проверить модель из .env)
+  aidesign brief data/demo/demo_48.json "Живём вдвоём, работаю из дома" --project demo
+  aidesign comment demo "Убери стол из спальни"
+  aidesign eval-agents -o out/agents_eval.md            (+ --split holdout для честной оценки)
 
 Файл на входе validate/render — Plan или ProjectState в JSON.
 """
@@ -183,6 +187,103 @@ def cmd_layout(args) -> int:
     return 0
 
 
+def _agents():
+    from . import agents
+    from .store import VersionStore
+    return agents, VersionStore
+
+
+def _print_turn(turn, store_root: str) -> None:
+    print(f"Версия {turn.state.version}: {turn.reply}")
+    for w in turn.warnings:
+        print(f"  ! {w}")
+    if turn.changed:
+        cons = turn.state.constraints
+        print("Ограничения:")
+        for c in cons:
+            extra = (f" @{c.room}" if c.room else "") + (f" → {c.target}" if c.target else "") \
+                + (f" {c.params}" if c.params else "")
+            print(f"  {c.id:<10} {c.kind:<4} {c.rule.value:<14} {c.subject}{extra}  [{c.source.value}]")
+        svg = Path(store_root) / turn.state.project_id / f"v{turn.state.version:04d}.svg"
+        svg.write_text(render_plan(turn.state.plan, layout=turn.state.layout, issues=turn.issues),
+                       encoding="utf-8")
+        print(svg)
+    u = turn.usage
+    print(f"LLM: вызовов {u.calls}, {u.seconds:.1f} с, токенов {u.prompt_tokens}+{u.completion_tokens}")
+
+
+def cmd_llm_check(args) -> int:
+    agents, _ = _agents()
+    from pydantic import BaseModel
+
+    from .agents.structured import ask_structured
+
+    class Ping(BaseModel):
+        ok: bool
+        room: str
+
+    cfg = agents.LLMConfig.from_env()
+    print("Модель:", cfg.describe(), "| JSON:", cfg.json_mode if cfg.provider == "openai" else "format=schema")
+    llm = agents.make_client(cfg)
+    res = ask_structured(llm, Ping, "Ты проверяешь связь.", "Ответь ok=true и room — как по-русски "
+                         "называется комната, где спят.", agent="ping")
+    print("Ответ:", res.value.model_dump(), f"| попыток {res.attempts}, {llm.log[-1].seconds:.1f} с")
+    return 0
+
+
+def cmd_brief(args) -> int:
+    agents, VersionStore = _agents()
+    plan, _ = _load(args.plan)
+    text = Path(args.file).read_text(encoding="utf-8") if args.file else args.text
+    store = VersionStore(args.store)
+    orch = agents.Orchestrator(agents.make_client(), store, time_limit=args.time_limit)
+    turn = orch.start(plan, text or "", args.project)
+    _print_turn(turn, args.store)
+    return 0
+
+
+def cmd_comment(args) -> int:
+    agents, VersionStore = _agents()
+    store = VersionStore(args.store)
+    state = store.load(args.project, args.version)
+    orch = agents.Orchestrator(agents.make_client(), store, time_limit=args.time_limit)
+    turn = orch.comment(state, args.text, target=args.target)
+    _print_turn(turn, args.store)
+    return 0
+
+
+def cmd_eval_agents(args) -> int:
+    agents, _ = _agents()
+    from .agents.eval import demo_state, eval_briefs, eval_edits, load_cases, report_markdown
+    from .schemas import Layout
+
+    root = Path(args.data)
+    plan = Plan.model_validate_json((root.parent / "demo" / "demo_48.json").read_text(encoding="utf-8"))
+    layout = Layout.model_validate_json((root / "demo_layout.json").read_text(encoding="utf-8"))
+    llm = agents.make_client()
+    print("Модель:", llm.config.describe())
+    reports = []
+    suffix = "" if args.split == "dev" else "_holdout"
+    if args.set in ("briefs", "all"):
+        reports.append(eval_briefs(llm, plan, load_cases(root / f"briefs{suffix}.jsonl")[: args.limit]))
+        reports[-1].kind += f" ({args.split})"
+        print(reports[-1].summary())
+    if args.set in ("edits", "all"):
+        reports.append(eval_edits(llm, demo_state(plan, layout),
+                                  load_cases(root / f"edits{suffix}.jsonl")[: args.limit]))
+        reports[-1].kind += f" ({args.split})"
+        print(reports[-1].summary())
+    md = report_markdown(reports)
+    if args.output:
+        out = Path(args.output)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(md, encoding="utf-8")
+        print(out)
+    else:
+        print(md)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="aidesign")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -232,6 +333,36 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--time-limit", type=float, default=5.0)
     p.set_defaults(func=cmd_layout)
+
+    p = sub.add_parser("llm-check", help="проверить связь с моделью из .env")
+    p.set_defaults(func=cmd_llm_check)
+
+    p = sub.add_parser("brief", help="новый проект: план + бриф текстом → первая версия")
+    p.add_argument("plan", help="plan.json")
+    p.add_argument("text", nargs="?", default="", help="пожелания клиента")
+    p.add_argument("--file", help="или файл с пожеланиями")
+    p.add_argument("--project", required=True, help="id проекта (папка в --store)")
+    p.add_argument("--store", default="projects")
+    p.add_argument("--time-limit", type=float, default=5.0)
+    p.set_defaults(func=cmd_brief)
+
+    p = sub.add_parser("comment", help="правка текстом к последней версии проекта")
+    p.add_argument("project")
+    p.add_argument("text")
+    p.add_argument("--target", help="id объекта, к которому правка")
+    p.add_argument("--version", type=int, help="к какой версии (по умолчанию последняя)")
+    p.add_argument("--store", default="projects")
+    p.add_argument("--time-limit", type=float, default=5.0)
+    p.set_defaults(func=cmd_comment)
+
+    p = sub.add_parser("eval-agents", help="метрика агентов на data/agents_eval")
+    p.add_argument("--set", choices=["briefs", "edits", "all"], default="all")
+    p.add_argument("--split", choices=["dev", "holdout"], default="dev",
+                   help="dev — набор для настройки промптов, holdout — отложенный, для отчёта")
+    p.add_argument("--data", default="data/agents_eval")
+    p.add_argument("--limit", type=int, default=None)
+    p.add_argument("-o", "--output")
+    p.set_defaults(func=cmd_eval_agents)
 
     args = ap.parse_args(argv)
     return args.func(args)

@@ -175,7 +175,10 @@ def solve_room(
     grid: int | None = None,
     time_limit: float = 5.0,
     seed: int = 0,
+    avoid: list[Item] | None = None,
 ) -> RoomResult:
+    """avoid — прежние положения предметов, которые пользователь просил переставить:
+    предмет того же типа не может снова накрыть центр старого места."""
     t0 = time.perf_counter()
     res = RoomResult(room_id=room_id)
     constraints = constraints or []
@@ -202,7 +205,7 @@ def solve_room(
             hard_wall.add(c.subject)
         elif c.rule == Rule.near and c.target:
             near.append((c.subject, c.target, c.kind))
-        elif c.rule not in (Rule.exclude, Rule.not_in_swing, Rule.keep, Rule.in_room):
+        elif c.rule not in (Rule.exclude, Rule.not_in_swing, Rule.keep, Rule.in_room, Rule.require):
             res.notes.append(f"ограничение {c.id} ({c.rule.value}) солвер пока не учитывает")
 
     hard, appr = _blocked_geometry(plan, room_id, room)
@@ -329,6 +332,17 @@ def solve_room(
                             m.Add(p == 0)
                         else:
                             m.Add(sum(bs) == p)
+
+                    for old in avoid or []:
+                        if old.type != alt:
+                            continue
+                        ox, oy = old.x / grid, old.y / grid  # центр старого места, в клетках
+                        outs = [m.NewBoolVar("") for _ in range(4)]
+                        m.Add(fx > math.floor(ox)).OnlyEnforceIf(outs[0])
+                        m.Add(fx + fw < math.ceil(ox)).OnlyEnforceIf(outs[1])
+                        m.Add(fy > math.floor(oy)).OnlyEnforceIf(outs[2])
+                        m.Add(fy + fh < math.ceil(oy)).OnlyEnforceIf(outs[3])
+                        m.AddBoolOr(outs).OnlyEnforceIf(p)
 
                     # центр предмета в полуклетках: 2·cx = 2·fx + fw
                     cx2, cy2 = 2 * fx + fw, 2 * fy + fh

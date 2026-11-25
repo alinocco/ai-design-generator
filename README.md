@@ -14,13 +14,16 @@ AI-генератор дизайн-проекта квартиры. Проект
 - **расстановка v0** (шаг 3) — каталог мебели и сантехники, солвер CP-SAT для каждой комнаты,
   геометрический Критик, который возвращает комнату на пересчёт, и частичная перегенерация
   по правке. Типы комнат после распознавания угадываются простыми правилами.
-  Подробности и цифры — `docs/layout.md`.
+  Подробности и цифры — `docs/layout.md`;
+- **LLM-агенты** — Аналитик брифа и Агент правок переводят текст в ограничения, а Оркестратор
+  ведёт версии и пересчитывает только затронутые комнаты. Модель — локальная Ollama или
+  любой OpenAI-совместимый API, настраивается в `.env`. Подробности — `docs/agents.md`.
 
 ![Распознавание плана застройщика](docs/img/recognition_pipeline.png)
 
 ![Расстановка на квартире из ResPlan до и после цикла с Критиком](docs/img/layout_critic.png)
 
-Агентов на LLM пока нет. Шаг 2 (перепланировка) — следующий.
+Шаг 2 (перепланировка) — следующий.
 
 ## Установка
 
@@ -49,6 +52,13 @@ uv run aidesign eval-recognition data/raw_plans
 uv run aidesign layout data/demo/demo_48.json -o out/demo_layout.json
 uv run aidesign layout out/demo_layout.json --rooms r2 --keep r2_bed --seed 1
 
+# агенты: бриф текстом → версия 1, правки текстом → версии 2, 3, …  (нужна Ollama или API, см. .env.example)
+cp .env.example .env && ollama pull qwen2.5:7b-instruct
+uv run aidesign llm-check
+uv run aidesign brief data/demo/demo_48.json "Живём вдвоём, работаю из дома, только душ" --project demo
+uv run aidesign comment demo "Шкаф мешает открыть дверь, перенеси его. Кровать не трогай."
+uv run aidesign eval-agents -o out/agents_eval.md
+
 # конвертировать ResPlan: квартиры до 120 м², не больше 3 спален, только без ошибок
 uv run aidesign convert-resplan data/external/ResPlan.pkl -o data/resplan --limit 500 \
     --split train --split-file data/external/split.json
@@ -65,16 +75,18 @@ src/aidesign/
   recognition/  Обмерщик v0: картинка плана → Plan (OpenCV + OCR + watershed)
   catalog.py    каталог мебели и сантехники, набор предметов для комнаты по типу и площади
   solver/       расстановка: CP-SAT для одной комнаты, сборка квартиры и цикл с Критиком
+  agents/       LLM-клиенты (Ollama / OpenAI-совместимый), Аналитик брифа, Агент правок,
+                Оркестратор, оценка агентов
   store.py      версии ProjectState: каждая версия — неизменяемый JSON
   cli.py        команды aidesign validate | render | convert-labelme | convert-resplan |
-                recognize | eval-recognition | layout
+                recognize | eval-recognition | layout | llm-check | brief | comment | eval-agents
 data/demo/      демо-квартира: план и полное состояние с брифом, правкой и расстановкой
+data/agents_eval/  размеченные брифы и правки для оценки агентов
 docs/           правила разметки, заметки о распознавании и расстановке
 tests/
 ```
 
-Будущая папка: `agents/` (Аналитик брифа, Нормоконтролёр, Планировщик, Критик,
-Оркестратор) — LLM-обёртки вокруг уже готовых солвера и проверок.
+Дальше: Нормоконтролёр и перепланировка (шаг 2), объяснение замечаний Критика словами.
 
 ## Главные соглашения
 

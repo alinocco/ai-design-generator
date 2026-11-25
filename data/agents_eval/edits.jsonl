@@ -1,0 +1,22 @@
+// Правка → ограничения. Состояние — демо-квартира и data/agents_eval/demo_layout.json.
+// intent: change | question | unsupported; move — id предметов, которые надо переставить.
+{"id": "e01_remove_desk", "text": "Убери стол из спальни.", "expect": {"intent": "change", "constraints": [{"rule": "exclude", "subject": "desk", "room": "r2"}]}}
+{"id": "e02_add_armchair", "text": "Добавь кресло в гостиную.", "expect": {"intent": "change", "constraints": [{"rule": "require", "subject": "armchair", "room": "r1"}]}}
+{"id": "e03_wardrobe_door", "text": "Шкаф мешает открыть дверь, перенеси его.", "expect": {"intent": "change", "move": ["r2_wardrobe"], "constraints": [], "optional": [{"rule": "not_in_swing", "subject": "wardrobe"}]}}
+{"id": "e04_keep_bed_desk_window", "text": "Кровать не трогай, а стол поставь у окна.", "expect": {"intent": "change", "constraints": [{"rule": "keep", "subject": "r2_bed"}, {"rule": "near", "subject": "desk", "target": "window"}]}}
+{"id": "e05_wardrobe_space", "text": "Перед шкафом слишком мало места, нужно хотя бы метр.", "expect": {"intent": "change", "constraints": [{"rule": "min_clearance", "subject": "wardrobe"}]}}
+{"id": "e06_question_area", "text": "Какая площадь у спальни?", "expect": {"intent": "question", "constraints": []}}
+{"id": "e07_demolish", "text": "Снеси стену между кухней и спальней.", "expect": {"intent": "unsupported", "constraints": []}}
+{"id": "e08_paint", "text": "Покрась стены в спальне в зелёный.", "expect": {"intent": "unsupported", "constraints": []}}
+{"id": "e09_shower", "text": "Вместо ванны поставь душевую.", "expect": {"intent": "change", "constraints": [{"rule": "exclude", "subject": "bathtub"}], "optional": [{"rule": "require", "subject": "shower"}]}}
+{"id": "e10_no_tv", "text": "Телевизор не нужен.", "expect": {"intent": "change", "constraints": [{"rule": "exclude", "subject": "tv_stand"}]}}
+{"id": "e11_washer_out", "text": "Стиральную машину из ванной убери.", "expect": {"intent": "change", "constraints": [{"rule": "exclude", "subject": "washer", "room": "r3"}]}}
+{"id": "e12_move_sofa", "text": "Переставь диван куда-нибудь в другое место.", "expect": {"intent": "change", "move": ["r1_sofa"], "constraints": []}}
+{"id": "e13_all_good", "text": "Мне всё нравится, оставь как есть.", "expect": {"intent": "question", "constraints": []}}
+{"id": "e14_move_table_keep_kitchen", "text": "Обеденный стол передвинь, а кухонный гарнитур пусть остаётся на месте.", "expect": {"intent": "change", "move": ["r1_dining_table"], "constraints": [{"rule": "keep", "subject": "r1_kitchen_run"}]}}
+{"id": "e15_bookcase_bedroom", "text": "Добавь в спальню стеллаж для книг.", "expect": {"intent": "change", "constraints": [{"rule": "require", "subject": "bookcase", "room": "r2"}]}}
+{"id": "e16_nudge", "text": "Сдвинь кровать на 20 сантиметров левее.", "expect": {"intent": "unsupported", "constraints": []}}
+{"id": "e17_bathroom_keep_move", "text": "Унитаз и раковину оставь, а стиральную машину переставь.", "expect": {"intent": "change", "move": ["r3_washer"], "constraints": [{"rule": "keep", "subject": "r3_toilet"}, {"rule": "keep", "subject": "r3_sink"}]}}
+{"id": "e18_sofa_window", "text": "Хочу, чтобы диван стоял у окна.", "expect": {"intent": "change", "constraints": [{"rule": "near", "subject": "sofa", "target": "window"}]}}
+{"id": "e19_desk_to_armchair", "target": "r2_desk", "text": "Этот стол убери, а вместо него поставь кресло.", "expect": {"intent": "change", "constraints": [{"rule": "exclude", "subject": "desk", "room": "r2"}, {"rule": "require", "subject": "armchair", "room": "r2"}]}}
+{"id": "e20_why_nightstands", "text": "Зачем тут две тумбочки?", "expect": {"intent": "question", "constraints": []}}
