@@ -343,3 +343,13 @@ def test_shower_replaces_bath_and_dedupe(demo_plan):
     got = [(c.rule.value, c.subject, c.room) for c in res.constraints]
     assert ("exclude", "bathtub", None) in got
     assert got.count(("require", "desk", "r2")) == 1 and ("require", "desk", None) not in got
+
+
+def test_move_to_other_room(demo_plan, demo_layout):
+    from aidesign.agents import parse_edit
+    state = ProjectState(project_id="x", plan=demo_plan, layout=demo_layout)
+    res = parse_edit(FakeLLM([_edit(actions=[_a("переставить", "стиральная машина", "кухня")])]), state,
+                     "Стиральная машина пусть будет на кухне", comment_id="c1")
+    got = {(c.rule.value, c.subject, c.room) for c in res.constraints}
+    assert got == {("exclude", "washer", "r3"), ("require", "washer", "r1")} and not res.move
+    assert set(res.rooms) == {"r1", "r3"}

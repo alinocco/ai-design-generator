@@ -3,7 +3,7 @@
 Выбор — переменными окружения (или файлом .env в текущей папке):
 
     LLM_PROVIDER=ollama              # ollama | openai
-    LLM_MODEL=qwen2.5:7b-instruct
+    LLM_MODEL=qwen2.5:14b-instruct
     LLM_BASE_URL=http://localhost:11434
     LLM_API_KEY=                     # для API
     LLM_JSON_MODE=schema             # schema | object | none — как просить JSON у API
@@ -40,7 +40,7 @@ class LLMError(RuntimeError):
 @dataclass
 class LLMConfig:
     provider: str = "ollama"
-    model: str = "qwen2.5:7b-instruct"
+    model: str = "qwen2.5:14b-instruct"
     base_url: str = "http://localhost:11434"
     api_key: str = ""
     json_mode: str = "schema"

@@ -53,7 +53,7 @@ uv run aidesign layout data/demo/demo_48.json -o out/demo_layout.json
 uv run aidesign layout out/demo_layout.json --rooms r2 --keep r2_bed --seed 1
 
 # агенты: бриф текстом → версия 1, правки текстом → версии 2, 3, …  (нужна Ollama или API, см. .env.example)
-cp .env.example .env && ollama pull qwen2.5:7b-instruct
+cp .env.example .env && ollama pull qwen2.5:14b-instruct
 uv run aidesign llm-check
 uv run aidesign brief data/demo/demo_48.json "Живём вдвоём, работаю из дома, только душ" --project demo
 uv run aidesign comment demo "Шкаф мешает открыть дверь, перенеси его. Кровать не трогай."

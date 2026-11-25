@@ -182,6 +182,17 @@ def actions_to_constraints(actions, plan: Plan, layout: Layout | None, *, source
             add(Rule.require, t, room, a.hard)
             continue
 
+        if act == "переставить" and room is not None and layout is not None:
+            # «перенеси стиралку на кухню»: предмет стоит в другой комнате → убрать там, добавить здесь
+            anywhere = resolve_items(a.object, None, layout)
+            elsewhere = [i for i in anywhere if i.room != room]
+            if elsewhere and not [i for i in anywhere if i.room == room]:
+                for t in sorted({i.type for i in elsewhere}):
+                    for r in sorted({i.room for i in elsewhere if i.type == t}):
+                        add(Rule.exclude, t, r, True)
+                    add(Rule.require, t, room, a.hard)
+                continue
+
         items = resolve_items(a.object, room, layout) if layout else []
         if items:
             types = sorted({i.type for i in items})

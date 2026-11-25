@@ -2,7 +2,7 @@
 {"id": "he1_no_tv", "text": "Убери телевизор из гостиной.", "expect": {"intent": "change", "constraints": [{"rule": "exclude", "subject": "tv_stand", "room": "r1"}]}}
 {"id": "he2_armchair_bedroom", "text": "Добавь в спальню кресло.", "expect": {"intent": "change", "constraints": [{"rule": "require", "subject": "armchair", "room": "r2"}]}}
 {"id": "he3_move_desk_keep_wardrobe", "text": "Переставь рабочий стол, а шкаф оставь где стоит.", "expect": {"intent": "change", "move": ["r2_desk"], "constraints": [{"rule": "keep", "subject": "r2_wardrobe"}]}}
-{"id": "he4_washer_to_kitchen", "text": "Стиральная машина пусть будет на кухне, а не в ванной.", "expect": {"intent": "change", "constraints": [{"rule": "exclude", "subject": "washer", "room": "r3"}, {"rule": "require", "subject": "washer", "room": "r1"}]}}
+{"id": "he4_washer_to_kitchen", "text": "Стиральная машина пусть будет на кухне, а не в ванной.", "expect": {"intent": "change", "constraints": [{"rule": "exclude", "subject": "washer", "room": "r3"}, {"rule": "require", "subject": "washer", "room": "r1"}]}, "note": "засвечен: по этой ошибке 14B добавлен перенос между комнатами"}
 {"id": "he5_why_no_shower", "text": "Почему в санузле нет душа?", "expect": {"intent": "question", "constraints": []}}
 {"id": "he6_floor_heating", "text": "Хочу тёплый пол в ванной.", "expect": {"intent": "unsupported", "constraints": []}}
 {"id": "he7_sofa_space", "text": "Сделай побольше места перед диваном.", "expect": {"intent": "change", "constraints": [{"rule": "min_clearance", "subject": "sofa"}]}}

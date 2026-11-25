@@ -20,3 +20,4 @@
 {"id": "e18_sofa_window", "text": "Хочу, чтобы диван стоял у окна.", "expect": {"intent": "change", "constraints": [{"rule": "near", "subject": "sofa", "target": "window"}]}}
 {"id": "e19_desk_to_armchair", "target": "r2_desk", "text": "Этот стол убери, а вместо него поставь кресло.", "expect": {"intent": "change", "constraints": [{"rule": "exclude", "subject": "desk", "room": "r2"}, {"rule": "require", "subject": "armchair", "room": "r2"}]}}
 {"id": "e20_why_nightstands", "text": "Зачем тут две тумбочки?", "expect": {"intent": "question", "constraints": []}}
+{"id": "e21_move_to_other_room", "text": "Перенеси рабочий стол из спальни в гостиную.", "expect": {"intent": "change", "constraints": [{"rule": "exclude", "subject": "desk", "room": "r2"}, {"rule": "require", "subject": "desk", "room": "r1"}]}}
